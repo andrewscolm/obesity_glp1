@@ -1,0 +1,56 @@
+---
+title: "Obesity and GLP-1s"
+format: 
+  html:
+    fontsize: 11px
+    mainfont: "Arial"
+---
+
+https://cks.nice.org.uk/topics/obesity/prescribing-information/
+
+Important aspects of prescribing information relevant to primary healthcare are covered in this section specifically for the drugs recommended in this CKS topic. For further information on contraindications, cautions, drug interactions, and adverse effects, see the electronic Medicines Compendium (eMC) or the British National Formulary (BNF).
+
+Orlistat
+Tirzepatide
+
+
+### Orlistat
+
+NICE recommends orlistat as an option for weight management and it can be prescribed in all settings, including primary care, if people meet the criteria in table 1.
+
+Orlistat is taken orally and may be preferable to some people who prefer not to self-inject and are willing to accept the potential adverse effects associated with this medicine.
+
+https://cks.nice.org.uk/topics/obesity/prescribing-information/orlistat/ 
+
+Prescribe 120 mg to be taken with each of the three main meals per day. 
+It can be taken immediately before, during, or up to 1 hour after a meal.
+
+```{r}
+#| label: load-packages
+#| include: false
+
+library(dplyr)
+library(readr)
+library(here)
+library(glue)
+library(tidyr)
+library(stringr)
+library(scales) ## format label_number
+library(gt) ## gt table
+library(ggplot2)
+library(fpp2) # Forecasting: Principles and Practice" (2nd Edition)
+library(lubridate) # interval
+```
+
+```{r}
+#| label: import-data
+#| include: false
+
+directory_name <- "data"
+date_tirzepatide_ng <-as.Date("2024-12-23")
+date_tirzepatide_diab <-as.Date("2023-10-25")
+
+label_number_n <- label_number(1, 1, big.mark=",")
+label_perc_n <- label_percent(accuracy =.0001)
+
+```
