@@ -6,25 +6,6 @@ format:
     mainfont: "Arial"
 ---
 
-https://cks.nice.org.uk/topics/obesity/prescribing-information/
-
-Important aspects of prescribing information relevant to primary healthcare are covered in this section specifically for the drugs recommended in this CKS topic. For further information on contraindications, cautions, drug interactions, and adverse effects, see the electronic Medicines Compendium (eMC) or the British National Formulary (BNF).
-
-Orlistat
-Tirzepatide
-
-
-### Orlistat
-
-NICE recommends orlistat as an option for weight management and it can be prescribed in all settings, including primary care, if people meet the criteria in table 1.
-
-Orlistat is taken orally and may be preferable to some people who prefer not to self-inject and are willing to accept the potential adverse effects associated with this medicine.
-
-https://cks.nice.org.uk/topics/obesity/prescribing-information/orlistat/ 
-
-Prescribe 120 mg to be taken with each of the three main meals per day. 
-It can be taken immediately before, during, or up to 1 hour after a meal.
-
 ```{r}
 #| label: load-packages
 #| include: false
@@ -53,4 +34,82 @@ date_tirzepatide_diab <-as.Date("2023-10-25")
 label_number_n <- label_number(1, 1, big.mark=",")
 label_perc_n <- label_percent(accuracy =.0001)
 
+#### practice level orlistat data
+df_orlistat_practice <- read_csv(here::here(directory_name,"orlistat_practice.csv.gz")) 
+
+#### practice level tirzepatide data
+df_tirzepatide_practice <- read_csv(here::here(directory_name,"tirzepatide_practice.csv.gz")) 
+
+### practice statistics data
+df_practice_stats <- read_csv(here::here(directory_name,"practice_info_full.csv.gz"))
+
+### ccgs info
+df_hscic_ccgs <- read_csv(here::here(directory_name,"practice_ccgs.csv.gz")) %>%
+  select("code","name","stp_id", "regional_team_id","org_type") 
+
+### region info
+df_regions <- read_csv(here::here("data","NHS_England_Names_and_Codes_in_England.csv")) %>%
+  rename(regional_team = NHSER24CDH ,region = NHSER24NM) %>%
+  dplyr::select(regional_team,region)
+
 ```
+
+```{r}
+#| label: create-regional-stats
+#| include: false
+
+### join region information to the practice stats
+df_region_stats <- df_practice_stats %>%
+  left_join(df_hscic_ccgs,by=join_by(sicbl ==code)) %>%
+  left_join(df_regions,by=join_by(regional_team_id ==regional_team )) %>%
+  group_by(regional_team_id,month) %>%
+  summarise(total_list_size=sum(total_list_size, na.rm = TRUE),
+            regional_team_id = last(regional_team_id ),
+              region = last(region ))
+
+```
+
+https://cks.nice.org.uk/topics/obesity/prescribing-information/
+
+Important aspects of prescribing information relevant to primary healthcare are covered in this section specifically for the drugs recommended in this CKS topic. For further information on contraindications, cautions, drug interactions, and adverse effects, see the electronic Medicines Compendium (eMC) or the British National Formulary (BNF).
+
+Orlistat
+Tirzepatide
+
+
+### Orlistat
+
+NICE recommends orlistat as an option for weight management and it can be prescribed in all settings, including primary care, if people meet the criteria in table 1.
+
+Orlistat is taken orally and may be preferable to some people who prefer not to self-inject and are willing to accept the potential adverse effects associated with this medicine.
+
+https://cks.nice.org.uk/topics/obesity/prescribing-information/orlistat/ 
+
+Prescribe 120 mg to be taken with each of the three main meals per day. 
+It can be taken immediately before, during, or up to 1 hour after a meal.
+
+```{r}
+#| label: create-orlistat_strength
+#| include: false
+
+
+df_orlistat_practice_strength <- df_orlistat_practice %>%
+  mutate(strength =  gsub("\\D", "", bnf_name))
+
+```
+
+```{r}
+#| label: create-regional-orlistat
+#| include: false
+
+
+df_orlistat_practice_month <- df_orlistat_practice_strength %>%
+  group_by(month,strength,regional_team) %>%
+  summarise(
+            items=sum(items),
+            regional_team = last(regional_team ))  %>%
+  ungroup() %>%
+  left_join(df_region_stats,by=join_by(regional_team ==regional_team_id,month))
+
+```
+
