@@ -41,7 +41,7 @@ df_orlistat_practice <- read_csv(here::here(directory_name,"orlistat_practice.cs
 df_tirzepatide_practice <- read_csv(here::here(directory_name,"tirzepatide_practice.csv.gz")) 
 
 ### practice statistics data
-df_practice_stats <- read_csv(here::here(directory_name,"practice_info_full.csv.gz"))
+df_practice_stats <- read_csv(here::here(directory_name,"practice_info_full.csv.gz")) ### as far back as 2015
 
 ### ccgs info
 df_hscic_ccgs <- read_csv(here::here(directory_name,"practice_ccgs.csv.gz")) %>%
@@ -60,7 +60,7 @@ df_regions <- read_csv(here::here("data","NHS_England_Names_and_Codes_in_England
 
 ### join region information to the practice stats
 df_region_stats <- df_practice_stats %>%
-  left_join(df_hscic_ccgs,by=join_by(sicbl ==code)) %>%
+  left_join(df_hscic_ccgs,by=join_by(pct_id ==code)) %>%
   left_join(df_regions,by=join_by(regional_team_id ==regional_team )) %>%
   group_by(regional_team_id,month) %>%
   summarise(total_list_size=sum(total_list_size, na.rm = TRUE),
@@ -109,7 +109,79 @@ df_orlistat_practice_month <- df_orlistat_practice_strength %>%
             items=sum(items),
             regional_team = last(regional_team ))  %>%
   ungroup() %>%
-  left_join(df_region_stats,by=join_by(regional_team ==regional_team_id,month))
+  inner_join(df_region_stats,by=join_by(regional_team ==regional_team_id,month)) %>%
+  mutate(rateper1000= items/total_list_size*1000)
 
 ```
+
+Y55 (Midlands and East of England) and Y57 (South of ENgland) are now defunct. 
+
+```{r}
+#| label: identify-max-NA-region-date 
+#| include: false
+
+
+na_date_max <- df_orlistat_practice_month %>%
+  filter(is.na(region)) %>%
+  slice_max(month) %>%
+  select(month) %>%
+  pull()
+# 2017-08-01
+```
+
+Consider cutting off dates before `{r} na-date-max`.
+
+```{r}
+#| label: remove-dates-before-cutoff
+#| include: false
+
+df_orlistat_practice_month <- df_orlistat_practice_month %>%
+  filter(month>na_date_max)
+
+```
+
+```{r}
+#| label: plot-orlistat
+#| include: false
+plot_orlistat_region <- df_orlistat_practice_month %>%
+      ggplot(aes(x = month, y = rateper1000,color=strength)) +
+      facet_wrap(vars(region)) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90))
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "orlistat",
+    "orlistat_region.png"),
+  plot_orlistat_region,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+##### low strength only
+
+plot_orlistat_region_low <- df_orlistat_practice_month %>%
+  filter(strength==60) %>%
+      ggplot(aes(x = month, y = rateper1000)) +
+      facet_wrap(vars(region)) +
+        geom_line(color="blue") +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90))
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "orlistat",
+    "orlistat_region_low_strength.png"),
+  plot_orlistat_region_low,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
 
