@@ -129,7 +129,6 @@ na_date_max <- df_orlistat_practice_month %>%
 # 2017-08-01
 ```
 
-Consider cutting off dates before `{r} na-date-max`.
 
 ```{r}
 #| label: remove-dates-before-cutoff
