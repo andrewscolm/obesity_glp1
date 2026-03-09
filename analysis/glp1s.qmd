@@ -52,6 +52,12 @@ df_regions <- read_csv(here::here("data","NHS_England_Names_and_Codes_in_England
   rename(regional_team = NHSER24CDH ,region = NHSER24NM) %>%
   dplyr::select(regional_team,region)
 
+### QOF Obesity prevalence
+df_qof_ob <-  read_csv(here::here("data", "qof", "prevalence.csv"))
+
+### QOF regions
+df_qof_region <-  read_csv(here::here("data", "qof", "geography.csv"))
+
 ```
 
 ```{r}
@@ -129,8 +135,6 @@ na_date_max <- df_orlistat_practice_month %>%
 # 2017-08-01
 ```
 
-Consider cutting off dates before `{r} na-date-max`.
-
 ```{r}
 #| label: remove-dates-before-cutoff
 #| include: false
@@ -153,7 +157,6 @@ plot_orlistat_region <- df_orlistat_practice_month %>%
 ggsave(
   filename = here::here(
     "output",
-    "orlistat",
     "orlistat_region.png"),
   plot_orlistat_region,
   dpi = 800,
@@ -175,7 +178,6 @@ plot_orlistat_region_low <- df_orlistat_practice_month %>%
 ggsave(
   filename = here::here(
     "output",
-    "orlistat",
     "orlistat_region_low_strength.png"),
   plot_orlistat_region_low,
   dpi = 800,
@@ -185,3 +187,205 @@ ggsave(
 )
 
 
+```
+
+### Tirzepatide
+
+```{r}
+#| label: tirzepatide-strength
+#| include: false
+
+
+df_tirzepatide_practice_strength <- df_tirzepatide_practice %>%
+  mutate(strength = gsub("[^0-9/.]", "", bnf_name),
+  strength = gsub("2.4", "", strength),
+  strength = gsub("/", " / ", strength))
+
+
+```
+
+
+```{r}
+#| label: create-regional-tirzepatide
+#| include: false
+
+
+df_tirzepatide_practice_strength_month <- df_tirzepatide_practice_strength %>%
+  group_by(month,strength,regional_team) %>%
+  summarise(
+            items=sum(items),
+            regional_team = last(regional_team ))  %>%
+  ungroup() %>%
+  inner_join(df_region_stats,by=join_by(regional_team ==regional_team_id,month)) %>%
+  mutate(rateper1000= items/total_list_size*1000)
+
+
+
+df_tirzepatide_practice_month <- df_tirzepatide_practice %>%
+  group_by(month,regional_team) %>%
+  summarise(
+            items=sum(items),
+            regional_team = last(regional_team ))  %>%
+  ungroup() %>%
+  inner_join(df_region_stats,by=join_by(regional_team ==regional_team_id,month)) %>%
+  mutate(rateper1000= items/total_list_size*1000)
+
+
+
+```
+
+
+```{r}
+#| label: plot-tirzepatide
+#| include: false
+
+df<-tibble(df_tirzepatide_practice_strength_month %>% select(region)) %>%
+  mutate(date_dm = as.POSIXct(date_tirzepatide_diab),  date_ng = as.POSIXct(date_tirzepatide_ng ))
+
+
+plot_tirzepatide_region_strengths <- df_tirzepatide_practice_strength_month %>%
+      ggplot(aes(x = month, y = rateper1000,color=strength)) +
+    geom_vline(xintercept=as.POSIXct(date_tirzepatide_diab), linetype="dashed") +
+    geom_vline( xintercept=as.POSIXct(date_tirzepatide_ng ), linetype="dotted") +
+      facet_wrap(vars(region)) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90)) 
+
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "tirzepatide_region_strengths.png"),
+  plot_tirzepatide_region_strengths,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+##### all tirzepatide
+
+plot_tirzepatide_region <- df_tirzepatide_practice_month %>%
+      ggplot(aes(x = month, y = rateper1000)) +
+    geom_vline(xintercept=as.POSIXct(date_tirzepatide_diab), linetype="dashed") +
+    geom_vline( xintercept=as.POSIXct(date_tirzepatide_ng ), linetype="dotted") +
+      facet_wrap(vars(region)) +
+        geom_line(color="blue") +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90)) 
+
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "tirzepatide_region.png"),
+  plot_tirzepatide_region,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+
+```
+
+
+```{r}
+#| label: combine-orlistat-tirzepatide
+#| include: false
+
+df_orlistat_practice_month_120 <- df_orlistat_practice_month %>%
+  filter(strength == 120) %>%
+  reframe(month,region,rateper1000_orlistat=rateper1000)
+
+
+df_orlistat_tirzepatide <- df_orlistat_practice_month_120 %>%
+  left_join(df_tirzepatide_practice_month %>% 
+      reframe(month,region,rateper1000_tirzepatide=rateper1000), by = join_by(month,region)) %>%
+  pivot_longer(cols = starts_with("rateper1000_"),
+    names_to = "drug",
+    names_prefix = "rateper1000_",
+    values_to = "rateper1000")
+
+```
+
+
+
+```{r}
+#| label: plot-orlistat-tirzepatide
+#| include: false
+
+plot_orlistat_tirzepatide <- df_orlistat_tirzepatide %>%
+      ggplot(aes(x = month, y = rateper1000,color=drug)) +
+      facet_wrap(vars(region)) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90))
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "orlistat_tirzepatide_region.png"),
+  plot_orlistat_tirzepatide,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+
+```
+
+#### QOF obesity prevalence
+
+```{r}
+#| label: obesity-prevalence
+#| include: false
+
+#### clean region
+df_qof_region_clean <- df_qof_region %>% 
+  inner_join( df_region_stats %>% filter(month=="2024-01-01") %>% drop_na %>% select(region),
+  by = join_by(region_name==region)) 
+
+
+df_qof_ob_region <- df_qof_ob %>%
+   left_join(df_qof_region_clean) %>%
+   group_by(year,region_ods_code ) %>%
+   summarise(register=sum(register),
+   practice_list_size = sum(practice_list_size),
+   region_name=last(region_name)) %>%
+    mutate(month =as.POSIXct(paste0(substr(year, 1,4),"-01-01") )) %>%
+    drop_na
+
+
+
+```
+
+
+
+```{r}
+#| label: plot-obesity-prevalence
+#| include: false
+
+plot_qof_ob_region <- df_qof_ob_region %>%
+      ggplot(aes(x = month, y = register)) +
+      facet_wrap(vars(region_name)) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90))
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "qof_obesity_region.png"),
+  plot_qof_ob_region,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+
+
+```
