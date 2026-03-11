@@ -1,0 +1,577 @@
+---
+title: "Obesity and GLP-1s"
+format: 
+  html:
+    fontsize: 11px
+    mainfont: "Arial"
+---
+
+```{r}
+#| label: load-packages
+#| include: false
+
+library(dplyr)
+library(readr)
+library(here)
+library(glue)
+library(tidyr)
+library(stringr)
+library(scales) ## format label_number
+library(gt) ## gt table
+library(ggplot2)
+library(fpp2) # Forecasting: Principles and Practice" (2nd Edition)
+library(lubridate) # interval
+```
+
+```{r}
+#| label: import-data
+#| include: false
+
+directory_name <- "data"
+date_tirzepatide_ng <-as.Date("2024-12-23")
+date_tirzepatide_diab <-as.Date("2023-10-25")
+
+label_number_n <- label_number(1, 1, big.mark=",")
+label_perc_n <- label_percent(accuracy =.0001)
+
+#### practice level orlistat data
+df_orlistat_practice <- read_csv(here::here(directory_name,"orlistat_practice.csv.gz")) 
+
+#### practice level tirzepatide data
+df_tirzepatide_practice <- read_csv(here::here(directory_name,"tirzepatide_practice.csv.gz")) 
+
+### practice statistics data
+df_practice_stats <- read_csv(here::here(directory_name,"practice_info_full.csv.gz")) ### as far back as 2015
+
+### ccgs info
+df_hscic_ccgs <- read_csv(here::here(directory_name,"practice_ccgs.csv.gz")) %>%
+  select("code","name","stp_id", "regional_team_id","org_type") 
+
+### region info
+df_regions <- read_csv(here::here("data","NHS_England_Names_and_Codes_in_England.csv")) %>%
+  rename(regional_team = NHSER24CDH ,region = NHSER24NM) %>%
+  dplyr::select(regional_team,region)
+
+### QOF Obesity prevalence
+df_qof_ob <-  read_csv(here::here("data", "qof", "prevalence.csv"))
+
+### QOF regions
+df_qof_region <-  read_csv(here::here("data", "qof", "geography.csv"))
+
+```
+
+```{r}
+#| label: create-regional-stats
+#| include: false
+
+### join region information to the practice stats
+df_region_stats <- df_practice_stats %>%
+  left_join(df_hscic_ccgs,by=join_by(pct_id ==code)) %>%
+  left_join(df_regions,by=join_by(regional_team_id ==regional_team )) %>%
+  group_by(regional_team_id,month) %>%
+  summarise(total_list_size=sum(total_list_size, na.rm = TRUE),
+            regional_team_id = last(regional_team_id ),
+              region = last(region ))
+
+```
+
+For historic reasons Integrated Care Boards (ICBs) are labelled as stp_id [Sustainability and Transformation Partnerships (STPs)]. There are multiple ways of identifying ICBs (see https://docs.google.com/document/d/1ZpfwiU_UnNX4T7y-lGPD-8i6rof69O8i-aX6xNy4li8/edit?tab=t.0)
+
+```{r}
+#| label: create-icb-stats
+#| include: false
+
+### join icb information to the practice stats
+df_icb_stats <- df_practice_stats %>%
+  left_join(df_hscic_ccgs,by=join_by(pct_id ==code)) %>%
+  group_by(stp_id,month) %>%
+  summarise(total_list_size=sum(total_list_size, na.rm = TRUE))
+
+```
+
+Quite a few practices in practice stats are missing STP info. How many are after the change in regions? (Y55 (Midlands and East of England) and Y57 (South of England) are now defunct)
+
+```{r}
+#| label: identify-max-NA-region-date 
+#| include: false
+
+
+na_date_max <- df_orlistat_practice %>%
+  group_by(month,regional_team) %>%
+  summarise(
+            items=sum(items),
+            regional_team = last(regional_team ))  %>%
+  ungroup() %>%
+  inner_join(df_region_stats,by=join_by(regional_team ==regional_team_id,month)) %>%
+  mutate(rateper1000= items/total_list_size*1000) %>%
+  filter(is.na(region)) %>%
+  slice_max(month) %>%
+  select(month) %>%
+  pull()
+# 2017-08-01
+```
+
+
+```{r}
+#| label: identify-practice-stats-missing-stp
+#| include: false
+
+df_icb_stats_missing_stp <- df_practice_stats %>%
+  left_join(df_hscic_ccgs,by=join_by(pct_id ==code)) %>%
+  filter(month>na_date_max)  %>%
+  filter(is.na(stp_id))
+
+nrow(df_icb_stats_missing_stp)
+# 134396
+
+## joining on sicbl instead of pct_id
+df_icb_stats_missing_stp_sicbl <- df_practice_stats %>%
+  left_join(df_hscic_ccgs,by=join_by(sicbl ==code)) %>%
+  filter(month>na_date_max)  %>%
+  filter(is.na(stp_id))
+
+nrow(df_icb_stats_missing_stp_sicbl)
+# 2855
+```
+
+```{r}
+#| label: create-icb-stats-from-sicbl
+#| include: false
+
+## remove NAs
+df_icb_stats_sicbl <- df_practice_stats %>%
+  left_join(df_hscic_ccgs,by=join_by(pct_id ==code)) %>%
+  group_by(stp_id,month) %>%
+  summarise(total_list_size=sum(total_list_size, na.rm = TRUE)) %>%
+  drop_na(stp_id)
+
+```
+
+
+https://cks.nice.org.uk/topics/obesity/prescribing-information/
+
+Important aspects of prescribing information relevant to primary healthcare are covered in this section specifically for the drugs recommended in this CKS topic. For further information on contraindications, cautions, drug interactions, and adverse effects, see the electronic Medicines Compendium (eMC) or the British National Formulary (BNF).
+
+Orlistat
+Tirzepatide
+
+
+### Orlistat
+
+NICE recommends orlistat as an option for weight management and it can be prescribed in all settings, including primary care, if people meet the criteria in table 1.
+
+Orlistat is taken orally and may be preferable to some people who prefer not to self-inject and are willing to accept the potential adverse effects associated with this medicine.
+
+https://cks.nice.org.uk/topics/obesity/prescribing-information/orlistat/ 
+
+Prescribe 120 mg to be taken with each of the three main meals per day. 
+It can be taken immediately before, during, or up to 1 hour after a meal.
+
+
+
+Some orlistat prescribing practices are missing STP info. Are they before the change in region?
+
+```{r}
+#| label: missing-orlistat_stp
+#| include: false
+
+
+ missing_stp <- df_orlistat_practice %>%
+  filter(is.na(stp))
+
+nrow(missing_stp)
+# 28775
+ 
+ missing_stp_after_region_change <- df_orlistat_practice %>%
+  filter(month>na_date_max) %>%
+  filter(is.na(stp))
+
+nrow(missing_stp_after_region_change)
+# 1424
+
+#percentage missing
+nrow(missing_stp_after_region_change)  / nrow(df_orlistat_practice %>% filter(month>na_date_max)) * 100
+# 0.24%
+
+
+#  View(missing_stp_after_region_change)
+# practices from different regions up to Feb 2020
+```
+
+Are they the same practices as practice stats?
+
+```{r}
+#| label: missing-orlistat_and_practice
+#| include: false
+
+df_orlistat_practice_with_stp <- df_orlistat_practice %>%
+  filter(month>na_date_max) %>%
+  drop_na(stp)
+ 
+nrow(df_orlistat_practice_with_stp)
+# 583290
+
+df_orlistat_practice_with_stp_and_stats <- df_orlistat_practice_with_stp %>%
+  inner_join(df_icb_stats_sicbl,by = join_by(stp ==stp_id,month))
+
+nrow(df_orlistat_practice_with_stp_and_stats)
+# 497925
+
+nrow(df_orlistat_practice_with_stp) - nrow(df_orlistat_practice_with_stp_and_stats)
+# 85365
+
+
+### which practices have orlistat stp but no practice stats stp?
+df_orlistat_practice_with_stp_no_stats <- df_orlistat_practice_with_stp %>%
+  anti_join(df_orlistat_practice_with_stp_and_stats, by=join_by(stp,month))
+
+# View(df_orlistat_practice_with_stp_no_stats)
+
+```
+
+
+
+
+
+```{r}
+#| label: create-orlistat_strength
+#| include: false
+
+
+df_orlistat_practice_strength <- df_orlistat_practice%>%
+  mutate(strength =  gsub("\\D", "", bnf_name))
+
+```
+
+
+```{r}
+#| label: create-regional-orlistat
+#| include: false
+
+#### pct_id
+df_orlistat_icb_month_pct_id <- df_orlistat_practice_strength %>%
+  group_by(month,strength,stp) %>%
+  summarise(
+            items=sum(items),
+            stp = last(stp ),
+            regional_team = last(regional_team))  %>%
+  ungroup()  %>%
+  filter(month>na_date_max)
+  
+  orlistat_rows<-nrow(df_orlistat_icb_month_pct_id)
+  
+  df_orlistat_icb_month_pct_id <- df_orlistat_icb_month_pct_id %>%
+  inner_join(df_icb_stats,by=join_by(stp ==stp_id,month)) %>%
+  mutate(rateper1000= items/total_list_size*1000)
+
+  orlistat_icb_rows<-nrow(df_orlistat_icb_month_pct_id)
+
+  dropped_icb_months <- orlistat_rows - orlistat_icb_rows
+ #1257
+
+
+### sicbl
+df_orlistat_icb_month_orig <- df_orlistat_practice_strength %>%
+  group_by(month,strength,stp) %>%
+  summarise(
+            items=sum(items),
+            stp = last(stp ),
+            regional_team=last(regional_team))  %>%
+  ungroup()  %>%
+  filter(month>na_date_max)
+  
+  orlistat_rows<-nrow(df_orlistat_icb_month_orig)
+  
+  df_orlistat_icb_month <- df_orlistat_icb_month_orig %>%
+  inner_join(df_icb_stats_sicbl,by=join_by(stp ==stp_id,month)) %>%
+  mutate(rateper1000= items/total_list_size*1000) %>%
+  drop_na(stp)
+
+  orlistat_icb_rows<-nrow(df_orlistat_icb_month)
+
+  dropped_icb_months <- orlistat_rows - orlistat_icb_rows
+ #1300
+dropped_icb_months_perc <- dropped_icb_months / orlistat_rows *100
+#  15.9
+
+ missing<- df_orlistat_icb_month_orig %>%
+  anti_join(df_orlistat_icb_month, by = join_by(stp))
+```
+
+
+
+```{r}
+#| label: plot-orlistat
+#| include: false
+
+plot_orlistat_icb <- df_orlistat_icb_month %>%
+      ggplot(aes(x = month, y = rateper1000,color=strength)) +
+      facet_wrap(vars(stp)) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90))
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "orlistat_icb.png"),
+  plot_orlistat_icb,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+##### low strength only
+
+plot_orlistat_icb_low <- df_orlistat_icb_month %>%
+  filter(strength==60) %>%
+      ggplot(aes(x = month, y = rateper1000)) +
+      facet_wrap(vars(stp)) +
+        geom_line(color="blue") +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90))
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "orlistat_icb_low_strength.png"),
+  plot_orlistat_icb_low,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+### by region
+
+regions <- df_orlistat_icb_month_orig %>%
+  group_by(regional_team) %>%
+  summarise(regional_team=last(regional_team)) %>%
+  pull()
+
+for (region in regions){
+
+plot_orlistat_icb_region <- df_orlistat_icb_month %>%
+  filter(regional_team == region) %>%
+      ggplot(aes(x = month, y = rateper1000,color=strength)) +
+      facet_wrap(vars(stp)) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90))
+          
+ggsave(
+  filename = here::here(
+    "output",
+    glue("orlistat_icb_{region}.png")),
+  plot_orlistat_icb_region,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+}
+
+```
+
+### Tirzepatide TODO
+
+```{r}
+#| label: tirzepatide-strength
+#| include: false
+
+
+df_tirzepatide_practice_strength <- df_tirzepatide_practice %>%
+  mutate(strength = gsub("[^0-9/.]", "", bnf_name),
+  strength = gsub("2.4", "", strength),
+  strength = gsub("/", " / ", strength))
+
+
+```
+
+
+```{r}
+#| label: create-regional-tirzepatide
+#| include: false
+
+
+df_tirzepatide_practice_strength_month <- df_tirzepatide_practice_strength %>%
+  group_by(month,strength,regional_team) %>%
+  summarise(
+            items=sum(items),
+            regional_team = last(regional_team ))  %>%
+  ungroup() %>%
+  inner_join(df_region_stats,by=join_by(regional_team ==regional_team_id,month)) %>%
+  mutate(rateper1000= items/total_list_size*1000)
+
+
+
+df_tirzepatide_practice_month <- df_tirzepatide_practice %>%
+  group_by(month,regional_team) %>%
+  summarise(
+            items=sum(items),
+            regional_team = last(regional_team ))  %>%
+  ungroup() %>%
+  inner_join(df_region_stats,by=join_by(regional_team ==regional_team_id,month)) %>%
+  mutate(rateper1000= items/total_list_size*1000)
+
+
+
+```
+
+
+```{r}
+#| label: plot-tirzepatide
+#| include: false
+
+df<-tibble(df_tirzepatide_practice_strength_month %>% select(region)) %>%
+  mutate(date_dm = as.POSIXct(date_tirzepatide_diab),  date_ng = as.POSIXct(date_tirzepatide_ng ))
+
+
+plot_tirzepatide_region_strengths <- df_tirzepatide_practice_strength_month %>%
+      ggplot(aes(x = month, y = rateper1000,color=strength)) +
+    geom_vline(xintercept=as.POSIXct(date_tirzepatide_diab), linetype="dashed") +
+    geom_vline( xintercept=as.POSIXct(date_tirzepatide_ng ), linetype="dotted") +
+      facet_wrap(vars(region)) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90)) 
+
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "tirzepatide_region_strengths.png"),
+  plot_tirzepatide_region_strengths,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+##### all tirzepatide
+
+plot_tirzepatide_region <- df_tirzepatide_practice_month %>%
+      ggplot(aes(x = month, y = rateper1000)) +
+    geom_vline(xintercept=as.POSIXct(date_tirzepatide_diab), linetype="dashed") +
+    geom_vline( xintercept=as.POSIXct(date_tirzepatide_ng ), linetype="dotted") +
+      facet_wrap(vars(region)) +
+        geom_line(color="blue") +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90)) 
+
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "tirzepatide_region.png"),
+  plot_tirzepatide_region,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+
+```
+
+
+```{r}
+#| label: combine-orlistat-tirzepatide
+#| include: false
+
+df_orlistat_practice_month_120 <- df_orlistat_practice_month %>%
+  filter(strength == 120) %>%
+  reframe(month,region,rateper1000_orlistat=rateper1000)
+
+
+df_orlistat_tirzepatide <- df_orlistat_practice_month_120 %>%
+  left_join(df_tirzepatide_practice_month %>% 
+      reframe(month,region,rateper1000_tirzepatide=rateper1000), by = join_by(month,region)) %>%
+  pivot_longer(cols = starts_with("rateper1000_"),
+    names_to = "drug",
+    names_prefix = "rateper1000_",
+    values_to = "rateper1000")
+
+```
+
+
+
+```{r}
+#| label: plot-orlistat-tirzepatide
+#| include: false
+
+plot_orlistat_tirzepatide <- df_orlistat_tirzepatide %>%
+      ggplot(aes(x = month, y = rateper1000,color=drug)) +
+      facet_wrap(vars(region)) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90))
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "orlistat_tirzepatide_region.png"),
+  plot_orlistat_tirzepatide,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+
+```
+
+#### QOF obesity prevalence
+
+```{r}
+#| label: obesity-prevalence
+#| include: false
+
+#### clean region
+df_qof_region_clean <- df_qof_region %>% 
+  inner_join( df_region_stats %>% filter(month=="2024-01-01") %>% drop_na %>% select(region),
+  by = join_by(region_name==region)) 
+
+
+df_qof_ob_region <- df_qof_ob %>%
+   left_join(df_qof_region_clean) %>%
+   group_by(year,region_ods_code ) %>%
+   summarise(register=sum(register),
+   practice_list_size = sum(practice_list_size),
+   region_name=last(region_name)) %>%
+    mutate(month =as.POSIXct(paste0(substr(year, 1,4),"-01-01") )) %>%
+    drop_na
+
+
+
+```
+
+
+
+```{r}
+#| label: plot-obesity-prevalence
+#| include: false
+
+plot_qof_ob_region <- df_qof_ob_region %>%
+      ggplot(aes(x = month, y = register)) +
+      facet_wrap(vars(region_name)) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90))
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "qof_obesity_region.png"),
+  plot_qof_ob_region,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+
+
+```
