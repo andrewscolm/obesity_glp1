@@ -45,49 +45,49 @@ qof_sources <- list(
       prevalence = "PREVALENCE_1920.csv",
       geography = "MAPPING_NHS_GEOGRAPHIES_1920.csv"
     )
-  ),
-  "2018-19" = list(
-    url = "https://files.digital.nhs.uk/A8/491BAC/QOF_1819_v2.zip",
-    datasets = list(
-      prevalence = "PREVALENCE_1819_v2.csv",
-      geography = "ORGANISATION_REFERENCE_1819_v2.csv"
-    )
-  ),
-  "2017-18" = list(
-    url = "https://files.digital.nhs.uk/72/CB2869/qof-1718-csv.zip",
-    datasets = list(
-      prevalence = "PREVALENCE.csv",
-      geography = "ORGANISATION_REFERENCE.csv"
-    )
-  ),
-  "2016-17" = list(
-    url = "https://files.digital.nhs.uk/zip/p/i/qof-1617-csv.zip",
-    datasets = list(
-      prevalence = "PREVALENCE.csv",
-      geography = "ORGANISATION_REFERENCE.csv"
-    )
-  ),
-  "2015-16" = list(
-    url = "https://files.digital.nhs.uk/publicationimport/pub22xxx/pub22266/qof-1516-csv.zip",
-    datasets = list(
-      prevalence = "PREVALENCE.csv",
-      geography = "ORGANISATION_REFERENCE.csv"
-    )
-  ),
-  "2014-15" = list(
-    url = "https://files.digital.nhs.uk/publicationimport/pub18xxx/pub18887/qof-1415-csvfiles-v2.zip",
-    datasets = list(
-      prevalence = "PREVALENCE_BY_PRAC_v2.csv",
-      geography = "PRAC_CONTROL.csv"
-    )
-  ),
-  "2013-14" = list(
-    url = "https://files.digital.nhs.uk/publicationimport/pub15xxx/pub15751/qof-1314-csvfilescqrsdata.zip",
-    datasets = list(
-      prevalence = "prevalencebyprac.csv",
-      geography = "Prac_Control.csv"
-    )
   )
+  # "2018-19" = list(
+  #   url = "https://files.digital.nhs.uk/A8/491BAC/QOF_1819_v2.zip",
+  #   datasets = list(
+  #     prevalence = "PREVALENCE_1819_v2.csv",
+  #     geography = "ORGANISATION_REFERENCE_1819_v2.csv"
+  #   )
+  # ),
+  # "2017-18" = list(
+  #   url = "https://files.digital.nhs.uk/72/CB2869/qof-1718-csv.zip",
+  #   datasets = list(
+  #     prevalence = "PREVALENCE.csv",
+  #     geography = "ORGANISATION_REFERENCE.csv"
+  #   )
+  # ),
+  # "2016-17" = list(
+  #   url = "https://files.digital.nhs.uk/zip/p/i/qof-1617-csv.zip",
+  #   datasets = list(
+  #     prevalence = "PREVALENCE.csv",
+  #     geography = "ORGANISATION_REFERENCE.csv"
+  #   )
+  # ),
+  # "2015-16" = list(
+  #   url = "https://files.digital.nhs.uk/publicationimport/pub22xxx/pub22266/qof-1516-csv.zip",
+  #   datasets = list(
+  #     prevalence = "PREVALENCE.csv",
+  #     geography = "ORGANISATION_REFERENCE.csv"
+  #   )
+  # ),
+  # "2014-15" = list(
+  #   url = "https://files.digital.nhs.uk/publicationimport/pub18xxx/pub18887/qof-1415-csvfiles-v2.zip",
+  #   datasets = list(
+  #     prevalence = "PREVALENCE_BY_PRAC_v2.csv",
+  #     geography = "PRAC_CONTROL.csv"
+  #   )
+  # ),
+  # "2013-14" = list(
+  #   url = "https://files.digital.nhs.uk/publicationimport/pub15xxx/pub15751/qof-1314-csvfilescqrsdata.zip",
+  #   datasets = list(
+  #     prevalence = "prevalencebyprac.csv",
+  #     geography = "Prac_Control.csv"
+  #   )
+  # )
 )
 
 # List all files in a zip archive (helper to find correct filenames)
@@ -170,7 +170,9 @@ geography_col_renames <- c(
   practice_name = "practicename",
   region_ods_code = "regioncode",
   region_ods_code = "region_code",
-  region_name = "regionname"
+  region_name = "regionname",
+  icb_ods_code = "stp_ods_code",
+  icb_name = "stp_name"
 )
 
 # Geography: columns to keep
@@ -179,7 +181,9 @@ geography_keep_cols <- c(
   "practice_code",
   "practice_name",
   "region_ods_code",
-  "region_name"
+  "region_name",
+  "icb_ods_code",
+  "icb_name"
 )
 
 # Dataset-specific configs
