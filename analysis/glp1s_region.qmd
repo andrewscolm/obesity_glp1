@@ -1,0 +1,391 @@
+---
+title: "Obesity and GLP-1s"
+format: 
+  html:
+    fontsize: 11px
+    mainfont: "Arial"
+---
+
+```{r}
+#| label: load-packages
+#| include: false
+
+library(dplyr)
+library(readr)
+library(here)
+library(glue)
+library(tidyr)
+library(stringr)
+library(scales) ## format label_number
+library(gt) ## gt table
+library(ggplot2)
+library(fpp2) # Forecasting: Principles and Practice" (2nd Edition)
+library(lubridate) # interval
+```
+
+```{r}
+#| label: import-data
+#| include: false
+
+directory_name <- "data"
+date_tirzepatide_ng <-as.Date("2024-12-23")
+date_tirzepatide_diab <-as.Date("2023-10-25")
+
+label_number_n <- label_number(1, 1, big.mark=",")
+label_perc_n <- label_percent(accuracy =.0001)
+
+#### practice level orlistat data
+df_orlistat_practice <- read_csv(here::here(directory_name,"orlistat_practice.csv.gz")) 
+
+#### practice level tirzepatide data
+df_tirzepatide_practice <- read_csv(here::here(directory_name,"tirzepatide_practice.csv.gz")) 
+
+### practice statistics data
+df_practice_stats <- read_csv(here::here(directory_name,"practice_info_full.csv.gz")) ### as far back as 2015
+
+### ccgs info
+df_hscic_ccgs <- read_csv(here::here(directory_name,"practice_ccgs.csv.gz")) %>%
+  select("code","name","stp_id", "regional_team_id","org_type") 
+
+### region info
+df_regions <- read_csv(here::here("data","NHS_England_Names_and_Codes_in_England.csv")) %>%
+  rename(regional_team = NHSER24CDH ,region = NHSER24NM) %>%
+  dplyr::select(regional_team,region)
+
+### QOF Obesity prevalence
+df_qof_ob <-  read_csv(here::here("data", "qof", "prevalence.csv"))
+
+### QOF regions
+df_qof_region <-  read_csv(here::here("data", "qof", "geography.csv"))
+
+```
+
+```{r}
+#| label: create-regional-stats
+#| include: false
+
+### join region information to the practice stats
+df_region_stats <- df_practice_stats %>%
+  left_join(df_hscic_ccgs,by=join_by(pct_id ==code)) %>%
+  left_join(df_regions,by=join_by(regional_team_id ==regional_team )) %>%
+  group_by(regional_team_id,month) %>%
+  summarise(total_list_size=sum(total_list_size, na.rm = TRUE),
+            regional_team_id = last(regional_team_id ),
+              region = last(region ))
+
+```
+
+https://cks.nice.org.uk/topics/obesity/prescribing-information/
+
+Important aspects of prescribing information relevant to primary healthcare are covered in this section specifically for the drugs recommended in this CKS topic. For further information on contraindications, cautions, drug interactions, and adverse effects, see the electronic Medicines Compendium (eMC) or the British National Formulary (BNF).
+
+Orlistat
+Tirzepatide
+
+
+### Orlistat
+
+NICE recommends orlistat as an option for weight management and it can be prescribed in all settings, including primary care, if people meet the criteria in table 1.
+
+Orlistat is taken orally and may be preferable to some people who prefer not to self-inject and are willing to accept the potential adverse effects associated with this medicine.
+
+https://cks.nice.org.uk/topics/obesity/prescribing-information/orlistat/ 
+
+Prescribe 120 mg to be taken with each of the three main meals per day. 
+It can be taken immediately before, during, or up to 1 hour after a meal.
+
+```{r}
+#| label: create-orlistat_strength
+#| include: false
+
+
+df_orlistat_practice_strength <- df_orlistat_practice %>%
+  mutate(strength =  gsub("\\D", "", bnf_name))
+
+```
+
+```{r}
+#| label: create-regional-orlistat
+#| include: false
+
+
+df_orlistat_practice_month <- df_orlistat_practice_strength %>%
+  group_by(month,strength,regional_team) %>%
+  summarise(
+            items=sum(items),
+            regional_team = last(regional_team ))  %>%
+  ungroup() %>%
+  inner_join(df_region_stats,by=join_by(regional_team ==regional_team_id,month)) %>%
+  mutate(rateper1000= items/total_list_size*1000)
+
+```
+
+Y55 (Midlands and East of England) and Y57 (South of ENgland) are now defunct. 
+
+```{r}
+#| label: identify-max-NA-region-date 
+#| include: false
+
+
+na_date_max <- df_orlistat_practice_month %>%
+  filter(is.na(region)) %>%
+  slice_max(month) %>%
+  select(month) %>%
+  pull()
+# 2017-08-01
+```
+
+```{r}
+#| label: remove-dates-before-cutoff
+#| include: false
+
+df_orlistat_practice_month <- df_orlistat_practice_month %>%
+  filter(month>na_date_max)
+
+```
+
+```{r}
+#| label: plot-orlistat
+#| include: false
+plot_orlistat_region <- df_orlistat_practice_month %>%
+      ggplot(aes(x = month, y = rateper1000,color=strength)) +
+      facet_wrap(vars(region)) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90))
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "orlistat_region.png"),
+  plot_orlistat_region,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+##### low strength only
+
+plot_orlistat_region_low <- df_orlistat_practice_month %>%
+  filter(strength==60) %>%
+      ggplot(aes(x = month, y = rateper1000)) +
+      facet_wrap(vars(region)) +
+        geom_line(color="blue") +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90))
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "orlistat_region_low_strength.png"),
+  plot_orlistat_region_low,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+
+```
+
+### Tirzepatide
+
+```{r}
+#| label: tirzepatide-strength
+#| include: false
+
+
+df_tirzepatide_practice_strength <- df_tirzepatide_practice %>%
+  mutate(strength = gsub("[^0-9/.]", "", bnf_name),
+  strength = gsub("2.4", "", strength),
+  strength = gsub("/", " / ", strength))
+
+
+```
+
+
+```{r}
+#| label: create-regional-tirzepatide
+#| include: false
+
+
+df_tirzepatide_practice_strength_month <- df_tirzepatide_practice_strength %>%
+  group_by(month,strength,regional_team) %>%
+  summarise(
+            items=sum(items),
+            regional_team = last(regional_team ))  %>%
+  ungroup() %>%
+  inner_join(df_region_stats,by=join_by(regional_team ==regional_team_id,month)) %>%
+  mutate(rateper1000= items/total_list_size*1000)
+
+
+
+df_tirzepatide_practice_month <- df_tirzepatide_practice %>%
+  group_by(month,regional_team) %>%
+  summarise(
+            items=sum(items),
+            regional_team = last(regional_team ))  %>%
+  ungroup() %>%
+  inner_join(df_region_stats,by=join_by(regional_team ==regional_team_id,month)) %>%
+  mutate(rateper1000= items/total_list_size*1000)
+
+
+
+```
+
+
+```{r}
+#| label: plot-tirzepatide
+#| include: false
+
+df<-tibble(df_tirzepatide_practice_strength_month %>% select(region)) %>%
+  mutate(date_dm = as.POSIXct(date_tirzepatide_diab),  date_ng = as.POSIXct(date_tirzepatide_ng ))
+
+
+plot_tirzepatide_region_strengths <- df_tirzepatide_practice_strength_month %>%
+      ggplot(aes(x = month, y = rateper1000,color=strength)) +
+    geom_vline(xintercept=as.POSIXct(date_tirzepatide_diab), linetype="dashed") +
+    geom_vline( xintercept=as.POSIXct(date_tirzepatide_ng ), linetype="dotted") +
+      facet_wrap(vars(region)) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90)) 
+
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "tirzepatide_region_strengths.png"),
+  plot_tirzepatide_region_strengths,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+##### all tirzepatide
+
+plot_tirzepatide_region <- df_tirzepatide_practice_month %>%
+      ggplot(aes(x = month, y = rateper1000)) +
+    geom_vline(xintercept=as.POSIXct(date_tirzepatide_diab), linetype="dashed") +
+    geom_vline( xintercept=as.POSIXct(date_tirzepatide_ng ), linetype="dotted") +
+      facet_wrap(vars(region)) +
+        geom_line(color="blue") +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90)) 
+
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "tirzepatide_region.png"),
+  plot_tirzepatide_region,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+
+```
+
+
+```{r}
+#| label: combine-orlistat-tirzepatide
+#| include: false
+
+df_orlistat_practice_month_120 <- df_orlistat_practice_month %>%
+  filter(strength == 120) %>%
+  reframe(month,region,rateper1000_orlistat=rateper1000)
+
+
+df_orlistat_tirzepatide <- df_orlistat_practice_month_120 %>%
+  left_join(df_tirzepatide_practice_month %>% 
+      reframe(month,region,rateper1000_tirzepatide=rateper1000), by = join_by(month,region)) %>%
+  pivot_longer(cols = starts_with("rateper1000_"),
+    names_to = "drug",
+    names_prefix = "rateper1000_",
+    values_to = "rateper1000")
+
+```
+
+
+
+```{r}
+#| label: plot-orlistat-tirzepatide
+#| include: false
+
+plot_orlistat_tirzepatide <- df_orlistat_tirzepatide %>%
+      ggplot(aes(x = month, y = rateper1000,color=drug)) +
+      facet_wrap(vars(region)) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90))
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "orlistat_tirzepatide_region.png"),
+  plot_orlistat_tirzepatide,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+
+```
+
+#### QOF obesity prevalence
+
+```{r}
+#| label: obesity-prevalence
+#| include: false
+
+#### clean region
+df_qof_region_clean <- df_qof_region %>% 
+  inner_join( df_region_stats %>% filter(month=="2024-01-01") %>% drop_na %>% select(region),
+  by = join_by(region_name==region)) 
+
+
+df_qof_ob_region <- df_qof_ob %>%
+   left_join(df_qof_region_clean) %>%
+   group_by(year,region_ods_code ) %>%
+   summarise(register=sum(register),
+   practice_list_size = sum(practice_list_size),
+   region_name=last(region_name)) %>%
+    mutate(month =as.POSIXct(paste0(substr(year, 1,4),"-01-01") )) %>%
+    drop_na
+
+
+
+```
+
+
+
+```{r}
+#| label: plot-obesity-prevalence
+#| include: false
+
+plot_qof_ob_region <- df_qof_ob_region %>%
+      ggplot(aes(x = month, y = register)) +
+      facet_wrap(vars(region_name)) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90))
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "qof_obesity_region.png"),
+  plot_qof_ob_region,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+
+
+```
