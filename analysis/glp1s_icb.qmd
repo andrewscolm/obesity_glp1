@@ -339,12 +339,16 @@ plot_orlistat_icb <- df_orlistat_icb_month %>%
       facet_wrap(vars(stp)) +
         geom_line() +
           scale_y_continuous(labels = label_comma()) +
-            theme(axis.text.x = element_text(angle =90))
+            theme(axis.text.x = element_text(angle =90)) +
+            ggtitle(glue("Orlistat items per 1000 list size")) +
+            xlab("") +
+            ylab("Rate per 1000 list size")
           
 ggsave(
   filename = here::here(
     "output",
     "icb",
+    "orlistat",
     "orlistat_icb.png"),
   plot_orlistat_icb,
   dpi = 800,
@@ -361,12 +365,16 @@ plot_orlistat_icb_low <- df_orlistat_icb_month %>%
       facet_wrap(vars(stp)) +
         geom_line(color="blue") +
           scale_y_continuous(labels = label_comma()) +
-            theme(axis.text.x = element_text(angle =90))
+            theme(axis.text.x = element_text(angle =90)) +
+            ggtitle(glue("Orlistat items per 1000 list size")) +
+            xlab("") +
+            ylab("Rate per 1000 list size")
           
 ggsave(
   filename = here::here(
     "output",
     "icb",
+    "orlistat",
     "orlistat_icb_low_strength.png"),
   plot_orlistat_icb_low,
   dpi = 800,
@@ -384,12 +392,16 @@ plot_orlistat_icb_region <- df_orlistat_icb_month %>%
       facet_wrap(vars(stp)) +
         geom_line() +
           scale_y_continuous(labels = label_comma()) +
-            theme(axis.text.x = element_text(angle =90))
+            theme(axis.text.x = element_text(angle =90)) +
+            ggtitle(glue("Orlistat items per 1000 list size: {region_name}")) +
+            xlab("") +
+            ylab("Rate per 1000 list size")
           
 ggsave(
   filename = here::here(
     "output",
     "icb",
+    "orlistat",
     glue("orlistat_icb_{region_name}.png")),
   plot_orlistat_icb_region,
   dpi = 800,
@@ -487,13 +499,17 @@ plot_tirzepatide_region_strengths <- df_tirzepatide_practice_strength_month %>%
       facet_wrap(vars(stp)) +
         geom_line() +
           scale_y_continuous(labels = label_comma()) +
-            theme(axis.text.x = element_text(angle =90)) 
+            theme(axis.text.x = element_text(angle =90))  +
+            ggtitle(glue("Tirzepatide items per 1000 list size")) +
+            xlab("") +
+            ylab("Rate per 1000 list size")
 
           
 ggsave(
   filename = here::here(
     "output",
     "icb",
+    "tirzepatide_by_strength",
     "tirzepatide_icb_strengths.png"),
   plot_tirzepatide_region_strengths,
   dpi = 800,
@@ -511,13 +527,17 @@ plot_tirzepatide_region <- df_tirzepatide_practice_month %>%
       facet_wrap(vars(stp)) +
         geom_line(color="blue") +
           scale_y_continuous(labels = label_comma()) +
-            theme(axis.text.x = element_text(angle =90)) 
+            theme(axis.text.x = element_text(angle =90))  +
+            ggtitle(glue("Tirzepatide items per 1000 list size")) +
+            xlab("") +
+            ylab("Rate per 1000 list size")
 
           
 ggsave(
   filename = here::here(
     "output",
     "icb",
+    "tirzepatide_all",
     "tirzepatide_icb.png"),
   plot_tirzepatide_region,
   dpi = 800,
@@ -536,12 +556,16 @@ plot_tirzepatide_icb_region <- df_tirzepatide_practice_strength_month %>%
       facet_wrap(vars(stp)) +
         geom_line() +
           scale_y_continuous(labels = label_comma()) +
-            theme(axis.text.x = element_text(angle =90))
+            theme(axis.text.x = element_text(angle =90)) +
+            ggtitle(glue("Tirzepatide items per 1000 list size: {region_name}")) +
+            xlab("") +
+            ylab("Rate per 1000 list size")
           
 ggsave(
   filename = here::here(
     "output",
     "icb",
+    "tirzepatide_by_strength",
     glue("tirzepatide_icb_{region_name}.png")),
   plot_tirzepatide_icb_region,
   dpi = 800,
@@ -549,6 +573,33 @@ ggsave(
   height = 30,
   units = "cm"
 )
+
+plot_tirzepatide_icb_region <- df_tirzepatide_practice_month %>%
+  filter(region == region_name) %>%
+      ggplot(aes(x = month, y = rateper1000)) +
+      facet_wrap(vars(stp)) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90)) +
+            ggtitle(glue("Tirzepatide items per 1000 list size: {region_name}")) +
+            xlab("") +
+            ylab("Rate per 1000 list size")
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "icb",
+    "tirzepatide_all",
+    glue("tirzepatide_all_icb_{region_name}.png")),
+  plot_tirzepatide_icb_region,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+
+
 
 }
 
@@ -585,12 +636,16 @@ plot_orlistat_tirzepatide <- df_orlistat_tirzepatide %>%
       facet_wrap(vars(stp)) +
         geom_line() +
           scale_y_continuous(labels = label_comma()) +
-            theme(axis.text.x = element_text(angle =90))
+            theme(axis.text.x = element_text(angle =90)) +
+            ggtitle(glue("Orlistat and tirzepatide items per 1000 list size")) +
+            xlab("") +
+            ylab("Rate per 1000 list size")
           
 ggsave(
   filename = here::here(
     "output",
     "icb",
+    "combined",
     "combined_orlistat_tirzepatide_icb.png"),
   plot_orlistat_tirzepatide,
   dpi = 800,
@@ -608,12 +663,16 @@ plot_orlistat_tirzepatide_region <- df_orlistat_tirzepatide %>%
       facet_wrap(vars(stp)) +
         geom_line() +
           scale_y_continuous(labels = label_comma()) +
-            theme(axis.text.x = element_text(angle =90))
+            theme(axis.text.x = element_text(angle =90)) +
+            ggtitle(glue("Orlistat and tirzepatide items per 1000 list size: {region_name}")) +
+            xlab("") +
+            ylab("Rate per 1000 list size")
           
 ggsave(
   filename = here::here(
     "output",
     "icb",
+    "combined",
     glue("combined_orlistat_tirzepatide_icb_{region_name}.png")),
   plot_orlistat_tirzepatide_region,
   dpi = 800,
@@ -707,4 +766,145 @@ ggsave(
 )
 
 
+```
+
+Using as 2024/25 QOF obesity register as the denominator
+
+```{r}
+#| label: combine-QOF-and-OP-data 
+#| include: false
+
+df_qof_ob_icb_wide  <- df_qof_ob %>%
+   left_join(df_qof_region) %>%
+   group_by(year,icb_ods_code  ) %>%
+   summarise(register=sum(register,na.omit=T),
+      icb_list_size = sum(practice_list_size,na.omit=T),
+      region_name=last(region_name),
+      icb_ods_code  = last(icb_ods_code ),
+      icb_name = last(icb_name)) %>%
+   inner_join(df_qof_region_clean, by=join_by(icb_ods_code)) %>%
+   mutate(month =as.POSIXct(paste0(substr(year, 1,4),"-01-01") ),
+   icb_name = icb_name.y)
+
+
+df_qof_orl_tirz <- df_orlistat_icb_month %>%
+  filter(strength==120) %>%
+  left_join(df_tirzepatide_practice_month, by =join_by(month,region,stp,total_list_size)) %>%
+  reframe(
+    month,
+    items_orlistat=items.x,
+    items_tirzepatide=items.y,
+    total_list_size,
+    stp,
+    regional_team,
+    region) %>%
+  filter(month>=as.Date("2024-01-01")) %>%
+  inner_join(df_qof_ob_icb_wide %>% filter(month==as.POSIXct("2024-01-01")) %>% select(-month), by = join_by(stp==icb_ods_code )) %>%
+  reframe(
+    month,
+    items_orlistat,
+    items_tirzepatide,
+    register,
+    total_list_size,
+    icb_list_size,
+    stp,
+    icb_name,
+    regional_team,
+    region,
+    perregister_orlistat=items_orlistat / register,
+    perregister_tirzepatide = items_tirzepatide / register)
+
+
+df_qof_orl_tirz_long <- df_qof_orl_tirz %>%
+  pivot_longer(starts_with("perregister_"),
+    names_to = "drug",
+    names_prefix = "perregister_",
+    values_to = "per_register")
+
+```
+
+
+```{r}
+#| label: plot-orlistat-tirzepatide-obesity-prevalence
+#| include: false
+
+
+plot_qof_orlistat <- df_qof_orl_tirz %>%
+      ggplot(aes(x = month, y = perregister_orlistat)) +
+      facet_wrap(vars(icb_name)) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90))
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "icb",
+    "qof_orlistat.png"),
+  plot_qof_orlistat,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+plot_qof_tirzepatide <- df_qof_orl_tirz %>%
+      ggplot(aes(x = month, y = perregister_tirzepatide)) +
+      facet_wrap(vars(icb_name)) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90))
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "icb",
+    "qof_tirzepatide.png"),
+  plot_qof_tirzepatide,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+plot_qof_orlistat_tirzep <- df_qof_orl_tirz_long %>%
+      ggplot(aes(x = month, y = per_register, colour=drug)) +
+      facet_wrap(vars(icb_name)) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90))
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "icb",
+    "qof_combined_orlistat_tirzepatide.png"),
+  plot_qof_orlistat_tirzep,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+for (region_name in regions){
+  plot_qof_orlistat_tirzep_region <- df_qof_orl_tirz_long %>%
+    filter(region==region_name) %>%
+      ggplot(aes(x = month, y = per_register, colour=drug)) +
+      facet_wrap(vars(icb_name)) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90))
+
+ggsave(
+  filename = here::here(
+    "output",
+    "icb",
+    glue("qof_combined_orlistat_tirzepatide_{region_name}.png")),
+  plot_qof_orlistat_tirzep_region,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+}
 ```
