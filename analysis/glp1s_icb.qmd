@@ -262,8 +262,6 @@ df_orlistat_practice_with_stp_no_stats <- df_orlistat_practice_with_stp %>%
 ```
 
 
- 
-
 
 ```{r}
 #| label: create-orlistat_strength
@@ -328,7 +326,33 @@ df_orlistat_icb_month_orig <- df_orlistat_practice_strength %>%
 
 ```
 
+```{r}
+#| label: orlistat-rate-range
+#| include: false
 
+max_orlistat_120<- df_orlistat_icb_month %>%
+  filter(month == as.Date("2025-12-01"),
+  strength == 120) %>%
+  slice_max(rateper1000,n=1)
+
+min_orlistat_120 <- df_orlistat_icb_month %>%
+  filter(month == as.Date("2025-12-01"),
+  strength == 120) %>%
+  slice_min(rateper1000,n=1)
+
+
+max_orlistat_60<- df_orlistat_icb_month %>%
+  filter(month == as.Date("2025-12-01"),
+  strength == 60) %>%
+  slice_max(rateper1000,n=1)
+
+min_orlistat_60 <- df_orlistat_icb_month %>%
+  filter(month == as.Date("2025-12-01"),
+  strength == 60) %>%
+  slice_min(rateper1000,n=1)
+
+
+```
 
 ```{r}
 #| label: plot-orlistat
@@ -414,7 +438,7 @@ ggsave(
 
 ```
 
-### Tirzepatide TODO
+### Tirzepatide
 
 ```{r}
 #| label: tirzepatide-strength
@@ -483,6 +507,20 @@ df_tirzepatide_practice_month <- df_tirzepatide_practice %>%
 
 ```
 
+
+```{r}
+#| label: rate-range-tirzepatide
+#| include: false
+
+max_tirzepatide<- df_tirzepatide_practice_month %>%
+  filter(month == as.Date("2025-12-01")) %>%
+  slice_max(rateper1000,n=1)
+
+min_tirzepatide<- df_tirzepatide_practice_month %>%
+  filter(month == as.Date("2025-12-01")) %>%
+  slice_min(rateper1000,n=1)
+
+```
 
 ```{r}
 #| label: plot-tirzepatide
@@ -825,6 +863,36 @@ df_qof_orl_tirz_long <- df_qof_orl_tirz %>%
 
 
 ```{r}
+#| label: qof-rates-ranges
+#| include: false
+
+max_qof_orlistat<- df_qof_orl_tirz %>%
+  filter(month == as.Date("2025-12-01")) %>%
+  slice_max(perregister_orlistat,n=1) %>%
+  select(perregister_orlistat,stp,icb_name,region )
+
+min_qof_orlistat<- df_qof_orl_tirz %>%
+  filter(month == as.Date("2025-12-01")) %>%
+  slice_min(perregister_orlistat,n=1) %>%
+  select(perregister_orlistat,stp,icb_name,region )
+
+
+max_qof_tirzepatide<- df_qof_orl_tirz %>%
+  filter(month == as.Date("2025-12-01")) %>%
+  slice_max(perregister_tirzepatide,n=1) %>%
+  select(perregister_tirzepatide,stp,icb_name,region )
+
+min_qof_tirzepatide<- df_qof_orl_tirz %>%
+  filter(month == as.Date("2025-12-01")) %>%
+  slice_min(perregister_tirzepatide,n=1) %>%
+  select(perregister_tirzepatide,stp,icb_name,region )
+
+
+```
+
+
+
+```{r}
 #| label: plot-orlistat-tirzepatide-obesity-prevalence
 #| include: false
 
@@ -834,12 +902,16 @@ plot_qof_orlistat <- df_qof_orl_tirz %>%
       facet_wrap(vars(icb_name)) +
         geom_line() +
           scale_y_continuous(labels = label_comma()) +
-            theme(axis.text.x = element_text(angle =90))
+            theme(axis.text.x = element_text(angle =90)) +
+            ggtitle(glue("Orlistat and tirzepatide items per QOF obesity register size: {region_name}")) +
+            xlab("") +
+            ylab("Rate per QOF obesity register size") 
           
 ggsave(
   filename = here::here(
     "output",
     "icb",
+    "QOF",
     "qof_orlistat.png"),
   plot_qof_orlistat,
   dpi = 800,
@@ -853,12 +925,16 @@ plot_qof_tirzepatide <- df_qof_orl_tirz %>%
       facet_wrap(vars(icb_name)) +
         geom_line() +
           scale_y_continuous(labels = label_comma()) +
-            theme(axis.text.x = element_text(angle =90))
+            theme(axis.text.x = element_text(angle =90)) +
+            ggtitle(glue("Orlistat and tirzepatide items per QOF obesity register size: {region_name}")) +
+            xlab("") +
+            ylab("Rate per QOF obesity register size")
           
 ggsave(
   filename = here::here(
     "output",
     "icb",
+    "QOF",
     "qof_tirzepatide.png"),
   plot_qof_tirzepatide,
   dpi = 800,
@@ -872,12 +948,16 @@ plot_qof_orlistat_tirzep <- df_qof_orl_tirz_long %>%
       facet_wrap(vars(icb_name)) +
         geom_line() +
           scale_y_continuous(labels = label_comma()) +
-            theme(axis.text.x = element_text(angle =90))
+            theme(axis.text.x = element_text(angle =90)) +
+            ggtitle(glue("Orlistat and tirzepatide items per QOF obesity register size")) +
+            xlab("") +
+            ylab("Rate per QOF obesity register size")
           
 ggsave(
   filename = here::here(
     "output",
     "icb",
+    "QOF",
     "qof_combined_orlistat_tirzepatide.png"),
   plot_qof_orlistat_tirzep,
   dpi = 800,
@@ -893,12 +973,16 @@ for (region_name in regions){
       facet_wrap(vars(icb_name)) +
         geom_line() +
           scale_y_continuous(labels = label_comma()) +
-            theme(axis.text.x = element_text(angle =90))
+            theme(axis.text.x = element_text(angle =90))  +
+            ggtitle(glue("Orlistat and tirzepatide items per QOF obesity register size: {region_name}")) +
+            xlab("") +
+            ylab("Rate per QOF obesity register size")
 
 ggsave(
   filename = here::here(
     "output",
     "icb",
+    "QOF",
     glue("qof_combined_orlistat_tirzepatide_{region_name}.png")),
   plot_qof_orlistat_tirzep_region,
   dpi = 800,
