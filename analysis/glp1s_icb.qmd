@@ -21,6 +21,8 @@ library(gt) ## gt table
 library(ggplot2)
 library(fpp2) # Forecasting: Principles and Practice" (2nd Edition)
 library(lubridate) # interval
+library(patchwork)
+library(paletteer)
 ```
 
 ```{r}
@@ -56,6 +58,11 @@ df_regions <- read_csv(here::here("data","NHS_England_Names_and_Codes_in_England
 
 regions <- df_regions %>%
   pull(region)
+
+region_colors <- set_names(
+  as.character(paletteer_d("ggsci::default_material", n = length(regions))),
+  regions
+)
 
 ### QOF Obesity prevalence
 df_qof_ob <-  read_csv(here::here("data", "qof", "prevalence.csv"))
@@ -375,7 +382,6 @@ max_y_orlistat_60 <- df_orlistat_icb_month %>%
 ```{r}
 #| label: plot-orlistat
 #| include: false
-
 plot_orlistat_icb <- df_orlistat_icb_month %>%
       ggplot(aes(x = month, y = rateper1000,color=strength)) +
       facet_wrap(vars(icb_name)) +
@@ -629,7 +635,9 @@ ggsave(
   height = 30,
   units = "cm"
 )
+```
 
+```{r}
 ###  region patchwork
 for (region_name in regions){
 
@@ -671,19 +679,19 @@ ggsave(
   units = "cm"
 )
 
+```
 
-
-
-
+```{r}
 
 ##### all tirzepatide
 
 plot_tirzepatide_region <- df_tirzepatide_practice_month %>%
+      arrange(region) %>%
       ggplot(aes(x = month, y = rateper1000)) +
     geom_vline(xintercept=as.POSIXct(date_tirzepatide_diab), linetype="dashed") +
     geom_vline( xintercept=as.POSIXct(date_tirzepatide_ng ), linetype="dotted") +
       facet_wrap(vars(icb_name)) +
-        geom_line(color="blue") +
+        geom_line(aes(color=region)) +
           scale_y_continuous(labels = label_comma()) +
             theme(axis.text.x = element_text(angle =90))  +
             ggtitle(glue("Tirzepatide items per 1000 list size")) +
@@ -704,6 +712,9 @@ ggsave(
   units = "cm"
 )
 
+```
+
+```{r}
 ### by region
 
 for (region_name in regions){
@@ -732,6 +743,9 @@ ggsave(
   units = "cm"
 )
 
+```
+
+```{r}
 plot_tirzepatide_icb_region <- df_tirzepatide_practice_month %>%
   filter(region == region_name) %>%
       ggplot(aes(x = month, y = rateper1000)) +
@@ -755,11 +769,11 @@ ggsave(
   height = 30,
   units = "cm"
 )
-
-
-
-
 }
+
+```
+
+```{r}
 
 ###  region patchwork
 for (region_name in regions){
@@ -803,11 +817,177 @@ ggsave(
 )
 
 
+```
 
+
+
+```{r}
+# ICB plots with one plot per ICB, with all other icb lines plotted in grey for context. 
+
+# 42 ICBs, so 6 rows and 7 columns for patchwork
+n_icbs <- 42
+nrows_icb_plot = 6
+ncols_icb_plot = 7
+
+icb_names <-  df_tirzepatide_practice_month %>% 
+arrange(region, icb_name) %>%
+select(region, icb_name) %>%
+distinct() %>%
+pull(icb_name)
+
+  region_colors <- setNames(
+    as.character(paletteer_d("NatParksPalettes::GrandCanyon", n = length(regions))),
+    regions
+  )
+
+icb_plot_names <- sapply(icb_names, function(x) {glue("plot_tirzepatide_icb_{x}")})
+
+for (i in 1:length(icb_names)) {
+  icbname <- icb_names[i]
+  icb_title_name <- gsub("NHS | ICB", "", icbname)
+  current_region <- df_tirzepatide_practice_month %>%
+    filter(icb_name == icbname) %>%
+    slice_head(n = 1) %>%
+    pull(region)
+
+  assign(
+    icb_plot_names[i],
+    df_tirzepatide_practice_month %>%
+      mutate(
+        priority = factor(case_when(
+          icb_name == icbname ~ 1,
+          region == current_region ~ 2,
+          TRUE ~ 3
+        ), levels = c(1, 2, 3)),
+        color_group = case_when(
+          icb_name == icbname ~ "focus",
+          region == current_region ~ "same_region",
+          TRUE ~ "other"
+        )
+      ) %>%
+      ggplot(aes(
+        x = month,
+        y = rateper1000,
+        group = icb_name,
+        color = color_group,
+        linewidth = priority,
+        alpha = priority)) +
+      geom_line() +
+      scale_color_manual(
+        values = c(
+          "focus" = "red",
+          "same_region" = region_colors[[current_region]],
+          "other" = "grey80"
+        ),
+        guide = "none"
+      ) +
+      scale_linewidth_manual(
+        values = c("1" = 1.2, "2" = 1.0, "3" = 0.7),
+        guide = "none"
+      ) +
+      scale_alpha_manual(
+        values = c("1" = 1, "2" = 0.7, "3" = 0.7),
+        guide = "none"
+      ) +
+      theme_bw() +
+      scale_y_continuous(
+        labels = label_comma(),
+        limits = c(0, max_y_tirzepatide)) +
+      theme(
+        text = element_text(size=24),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()
+      ) +
+      ggtitle(icb_title_name) +
+      xlab("") +
+      ylab("") 
+  )
+
+  # only add y axis label and left-side y ticks/text to left hand plots
+  if (i %in% seq(1, n_icbs, ncols_icb_plot)) {
+    assign(
+      icb_plot_names[i],
+      get(icb_plot_names[i]) +
+        ylab("Rate per 1000 list size") +
+        theme(axis.text.y = element_text(),
+              axis.ticks.y = element_line())
+    )
+  }
+
+  # only show x-axis text and ticks on the bottom row of plots
+  if (i > n_icbs - ncols_icb_plot) {
+    assign(
+      icb_plot_names[i],
+      get(icb_plot_names[i]) +
+        theme(axis.text.x = element_text(angle = 90),
+              axis.ticks.x = element_line())
+    )
+  }
+  
+}
+
+# get(icb_plot_names[29])
+# get(icb_plot_names[2])
+
+plot_tirzepatide_icb_patchwork <- patchwork::wrap_plots(
+  plotlist = mget(icb_plot_names),
+  nrow = nrows_icb_plot, 
+  ncol = ncols_icb_plot
+)
+
+# Create a separate plot with the legend only
+plot_tirzepatide_icb_legend <- tibble(
+  label = factor(c("Current ICB", names(region_colors)),
+                 levels = c("Current ICB", names(region_colors)))
+) %>%
+  ggplot(aes(x = 1, y = label, color = label)) +
+  geom_line(linewidth = 1, alpha = 0) +
+  scale_color_manual(
+    values = c(
+      "ICB" = "red",
+      region_colors,
+      "Other ICBs" = "grey80"
+    ),
+    guide = guide_legend(
+      title = NULL,
+      direction = "horizontal",
+      nrow = 1,
+      byrow = TRUE,
+      override.aes = list(alpha = 1, linewidth = 1)
+    )
+  ) +
+  theme_void() +
+  theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.box = "horizontal",
+    legend.text = element_text(size = 8),
+    legend.spacing.x = unit(0.4, "cm")
+  )
+
+plot_tirzepatide_icb_patchwork_with_legend <-
+  plot_tirzepatide_icb_patchwork / plot_tirzepatide_icb_legend +
+  plot_layout(heights = c(60, 1))
+
+# plot_tirzepatide_icb_patchwork_with_legend
+
+ggsave(
+  filename = here::here(
+    "output",
+    "icb",
+    "tirzepatide",
+    glue("plot_tirzepatide_icb_patchwork.png")),
+  plot_tirzepatide_icb_patchwork_with_legend,
+  dpi = 800,
+  width = 80,
+  height = 50,
+  units = "cm"
+)
 
 
 ```
-
 
 ```{r}
 #| label: combine-orlistat-tirzepatide
