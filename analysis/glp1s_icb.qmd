@@ -819,7 +819,30 @@ ggsave(
 
 ```
 
-
+```{r}
+# Formats ICB names by replacing the last space in the first n characters of a string with a given string (default is 20 and "\n"). This is useful for formatting ICB names for plotting, ensuring that the last word in the first 20 characters is separated by an underscore for better readability in plot titles or labels.
+replace_last_space_firstn <- function(x, n = 24, replacement = "\n") {
+  sapply(x, function(str) {
+    # Get first n characters (or full string if shorter)
+    prefix <- substr(str, 1, n)
+    
+    # Find positions of whitespace in that prefix
+    space_positions <- gregexpr("\\s", prefix)[[1]]
+    
+    # If fewer than n char or no whitespace found, return original string
+    if (nchar(str) <= n || space_positions[1] == -1) return(str)
+    
+    # Get last whitespace position within first n chars
+    last_space <- tail(space_positions, 1)
+    
+    # Replace that whitespace
+    substr(prefix, last_space, last_space) <- replacement
+    
+    # Reconstruct full string
+    paste0(prefix, substr(str, n + 1, nchar(str)))
+  }, USE.NAMES = FALSE)
+}
+```
 
 ```{r}
 # ICB plots with one plot per ICB, with all other icb lines plotted in grey for context. 
@@ -835,24 +858,35 @@ select(region, icb_name) %>%
 distinct() %>%
 pull(icb_name)
 
-  region_colors <- setNames(
-    as.character(paletteer_d("NatParksPalettes::GrandCanyon", n = length(regions))),
-    regions
-  )
+region_palette <- paletteer_d("ggprism::floral", n = 8)[-7][c(5,3,6,4,2,7,1)]#[c(1,7,2,4,6,3,5)]
+scales::show_col(region_palette)
+
+region_icb_colors <- setNames(
+  c("red", as.character(region_palette), "grey80"),
+  c("Current ICB", sort(paste(regions, "ICBs")), "Other ICBs")
+)
+
+region_icb_plot_colors <- setNames(
+  c("red", as.character(region_palette), "grey80"),
+  c("Current ICB", sort(regions), "Other ICBs")
+)
 
 icb_plot_names <- sapply(icb_names, function(x) {glue("plot_tirzepatide_icb_{x}")})
 
 for (i in 1:length(icb_names)) {
   icbname <- icb_names[i]
-  icb_title_name <- gsub("NHS | ICB", "", icbname)
+  
+  icb_title_name <- icbname %>%
+    str_remove_all("NHS | ICB") %>%
+    str_squish() %>%
+    replace_last_space_firstn(., n = 29)
+
   current_region <- df_tirzepatide_practice_month %>%
     filter(icb_name == icbname) %>%
     slice_head(n = 1) %>%
     pull(region)
 
-  assign(
-    icb_plot_names[i],
-    df_tirzepatide_practice_month %>%
+  df_tirzepatide_practice_month <- df_tirzepatide_practice_month %>%
       mutate(
         priority = factor(case_when(
           icb_name == icbname ~ 1,
@@ -864,72 +898,84 @@ for (i in 1:length(icb_names)) {
           region == current_region ~ "same_region",
           TRUE ~ "other"
         )
-      ) %>%
-      ggplot(aes(
-        x = month,
-        y = rateper1000,
-        group = icb_name,
-        color = color_group,
-        linewidth = priority,
-        alpha = priority)) +
-      geom_line() +
+      ) 
+
+  #1. Create main plot
+  assign(
+    icb_plot_names[i],
+      ggplot(
+        data = df_tirzepatide_practice_month,
+        aes(x = month, y = rateper1000, group = icb_name)) +
+      # Plot groups in separate layers to allow different aesthetics for each group and to layer with focus on top, followed by same region.
+      geom_line(
+        data = filter(df_tirzepatide_practice_month, color_group %in% c("other")),
+        aes(color = color_group, linewidth = priority, alpha = priority)
+      ) +
+      geom_line(
+        data = filter(df_tirzepatide_practice_month, color_group %in% c("same_region")),
+        aes(color = color_group, linewidth = priority, alpha = priority)
+      ) +
+      geom_line(
+        data = filter(df_tirzepatide_practice_month, color_group == "focus"),
+        aes(color = color_group, linewidth = priority, alpha = priority)
+      ) +
       scale_color_manual(
         values = c(
           "focus" = "red",
-          "same_region" = region_colors[[current_region]],
+          "same_region" = region_icb_plot_colors[[current_region]],
           "other" = "grey80"
         ),
         guide = "none"
       ) +
       scale_linewidth_manual(
-        values = c("1" = 1.2, "2" = 1.0, "3" = 0.7),
+        values = c("1" = 1.1, "2" = 0.9, "3" = 0.7),
         guide = "none"
       ) +
       scale_alpha_manual(
-        values = c("1" = 1, "2" = 0.7, "3" = 0.7),
+        values = c("1" = 1, "2" = 0.6, "3" = 0.7),
         guide = "none"
       ) +
       theme_bw() +
       scale_y_continuous(
         labels = label_comma(),
         limits = c(0, max_y_tirzepatide)) +
+      ggtitle(icb_title_name) +
       theme(
-        text = element_text(size=24),
+        text = element_text(size=15),
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
         axis.text.y = element_blank(),
         axis.ticks.y = element_blank()
       ) +
-      ggtitle(icb_title_name) +
       xlab("") +
       ylab("") 
   )
 
-  # only add y axis label and left-side y ticks/text to left hand plots
+  # 2. Only add y axis label and left-side y ticks/text to left hand plots
   if (i %in% seq(1, n_icbs, ncols_icb_plot)) {
     assign(
       icb_plot_names[i],
       get(icb_plot_names[i]) +
-        ylab("Rate per 1000 list size") +
-        theme(axis.text.y = element_text(),
-              axis.ticks.y = element_line())
+        # ylab("Rate per 1000 list size") +
+        ylab("") +
+        theme(
+          axis.text.y = element_text(size = 20),
+          axis.ticks.y = element_line())
     )
   }
 
-  # only show x-axis text and ticks on the bottom row of plots
+  # 3. Only add x-axis text and ticks on the bottom row of plots
   if (i > n_icbs - ncols_icb_plot) {
     assign(
       icb_plot_names[i],
       get(icb_plot_names[i]) +
-        theme(axis.text.x = element_text(angle = 90),
-              axis.ticks.x = element_line())
+        theme(
+          axis.text.x = element_text(angle = 90, size = 20),
+          axis.ticks.x = element_line())
     )
   }
   
 }
-
-# get(icb_plot_names[29])
-# get(icb_plot_names[2])
 
 plot_tirzepatide_icb_patchwork <- patchwork::wrap_plots(
   plotlist = mget(icb_plot_names),
@@ -939,23 +985,20 @@ plot_tirzepatide_icb_patchwork <- patchwork::wrap_plots(
 
 # Create a separate plot with the legend only
 plot_tirzepatide_icb_legend <- tibble(
-  label = factor(c("Current ICB", names(region_colors)),
-                 levels = c("Current ICB", names(region_colors)))
+  legend_label = factor(names(region_icb_colors), levels = names(region_icb_colors))
 ) %>%
-  ggplot(aes(x = 1, y = label, color = label)) +
-  geom_line(linewidth = 1, alpha = 0) +
+  ggplot(aes(x = 1, y = legend_label, color = legend_label)) +
+  geom_line(  ) +
   scale_color_manual(
     values = c(
-      "ICB" = "red",
-      region_colors,
-      "Other ICBs" = "grey80"
+      region_icb_colors
     ),
     guide = guide_legend(
-      title = NULL,
+      title = "",
       direction = "horizontal",
       nrow = 1,
       byrow = TRUE,
-      override.aes = list(alpha = 1, linewidth = 1)
+      override.aes = list(alpha = 1, linewidth = 1.8)
     )
   ) +
   theme_void() +
@@ -963,23 +1006,33 @@ plot_tirzepatide_icb_legend <- tibble(
     legend.position = "bottom",
     legend.direction = "horizontal",
     legend.box = "horizontal",
-    legend.text = element_text(size = 8),
-    legend.spacing.x = unit(0.4, "cm")
+    legend.text = element_text(size = 22)
   )
 
-plot_tirzepatide_icb_patchwork_with_legend <-
-  plot_tirzepatide_icb_patchwork / plot_tirzepatide_icb_legend +
-  plot_layout(heights = c(60, 1))
+y_label <- ggplot() +
+  annotate(
+    "text",
+    x = 0.5,
+    y = 0.5,
+    label = "Rate per 1000 list size",
+    angle = 90,
+    size = 9
+  ) +
+  theme_void()
 
-# plot_tirzepatide_icb_patchwork_with_legend
+
+plot_tirzepatide_icb_patchwork_with_legend_y_axis <-
+  (
+    y_label + plot_tirzepatide_icb_patchwork + plot_layout(widths = c(1, 48))) / plot_tirzepatide_icb_legend +
+  plot_layout(heights = c(48, 1))
 
 ggsave(
   filename = here::here(
     "output",
     "icb",
     "tirzepatide",
-    glue("plot_tirzepatide_icb_patchwork.png")),
-  plot_tirzepatide_icb_patchwork_with_legend,
+    glue("plot_tirzepatide_icb_patchwork_full.png")),
+  plot_tirzepatide_icb_patchwork_with_legend_y_axis,
   dpi = 800,
   width = 80,
   height = 50,
