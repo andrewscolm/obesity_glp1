@@ -21,6 +21,8 @@ library(gt) ## gt table
 library(ggplot2)
 library(fpp2) # Forecasting: Principles and Practice" (2nd Edition)
 library(lubridate) # interval
+library(patchwork)
+library(tibble)
 ```
 
 ```{r}
@@ -52,7 +54,16 @@ df_hscic_ccgs <- read_csv(here::here(directory_name,"practice_ccgs.csv.gz")) %>%
 ### region info
 df_regions <- read_csv(here::here("data","NHS_England_Names_and_Codes_in_England.csv")) %>%
   rename(regional_team = NHSER24CDH ,region = NHSER24NM) %>%
-  dplyr::select(regional_team,region)
+  dplyr::select(regional_team,region) %>%
+        mutate(col_fill=c(
+    "#8dabd371",
+   "#e7b6e1",
+    "#ffffb3",
+    "#eeb35a38",
+   "#8aebe693",
+    "#b6e59b8c",
+    "#f344444d"
+  )) 
 
 regions <- df_regions %>%
   pull(region)
@@ -68,7 +79,10 @@ df_qof_icbs <- df_qof_region %>%
   group_by(icb_ods_code) %>%
   summarise(icb_ods_code = last(icb_ods_code),
   icb_name= last(icb_name)) %>%
-    mutate(icb_name = gsub("Integrated Care Board","ICB",icb_name))
+    mutate(icb_name = gsub("Integrated Care Board","ICB",icb_name),
+    # icb_name = gsub("ICB","",icb_name),
+#   icb_name = gsub("NHS ","",icb_name),
+    icb_name = str_wrap(icb_name, width = 33))
 ```
 
 ```{r}
@@ -468,11 +482,12 @@ assign(glue("plot_orlistat_icb_region_{region_name}"), df_orlistat_icb_month %>%
             theme(axis.text.x = element_text(angle =90)) +
             ggtitle(glue("Orlistat items per 1000 list size: {region_name}")) +
             xlab("") +
-            ylab("Rate per 1000 list size"))
+            ylab("Rate per 1000 list size")  +
+  theme_minimal())
           
 }
 
- plot_orlistat_icb_region_patchwork <- patchwork::wrap_plots(
+ plot_orlistat_icb_region_patchwork <- wrap_plots(
   `plot_orlistat_icb_region_East of England`,
   plot_orlistat_icb_region_London,
   plot_orlistat_icb_region_Midlands,
@@ -497,6 +512,56 @@ ggsave(
 )
 
 
+
+
+### low strength only
+
+###  region patchwork
+for (region_name in regions){
+
+assign(glue("plot_orlistat_low_icb_region_{region_name}"), df_orlistat_icb_month %>%
+  filter(region == region_name,
+         strength == "60 mg") %>%
+   mutate(icb_name = factor(icb_name, levels = c(levels(as.factor(icb_name)),""," ","  ","    ","     ")[1:(ceiling(length(c(levels(as.factor(icb_name))))/6)*6)])) %>%
+      ggplot(aes(x = month, y = rateper1000,color=strength)) +
+      facet_wrap(vars(icb_name),ncol=6,nrow=2, drop = FALSE) +
+        geom_line() +
+          scale_y_continuous(labels = label_comma(),limits =c(0,max_y_orlistat_120)) +
+            theme(axis.text.x = element_text(angle =90)) +
+            ggtitle(glue("Orlistat items per 1000 list size: {region_name}")) +
+            xlab("") +
+            ylab("Rate per 1000 list size")  +
+  theme_minimal())
+          
+}
+
+ plot_orlistat_icb_region_patchwork <- wrap_plots(
+  `plot_orlistat_low_icb_region_East of England`,
+  plot_orlistat_low_icb_region_London,
+  plot_orlistat_low_icb_region_Midlands,
+  `plot_orlistat_low_icb_region_North East and Yorkshire`,
+  `plot_orlistat_low_icb_region_North West`,
+  `plot_orlistat_low_icb_region_South East`,
+  `plot_orlistat_low_icb_region_South West`,
+  ncol=1, heights = c(1,1,2,1,1,1,2))
+
+  
+ggsave(
+  filename = here::here(
+    "output",
+    "icb",
+    "orlistat",
+    glue("plot_orlistat_low_icb_region_patchwork.png")),
+  plot_orlistat_icb_region_patchwork,
+  dpi = 800,
+  width = 60,
+  height = 60,
+  units = "cm"
+)
+
+
+
+
 ```
 
 ### Tirzepatide
@@ -510,6 +575,10 @@ df_tirzepatide_practice_strength <- df_tirzepatide_practice %>%
   strength = gsub("2.4", "", strength),
   strength = gsub("/", "mg / ", strength),
   strength = glue("{strength}ml"))
+
+
+
+
 
 
 ```
@@ -643,11 +712,12 @@ assign(glue("plot_tirzepatide_region_strengths_{region_name}"), df_tirzepatide_p
             theme(axis.text.x = element_text(angle =90)) +
             ggtitle(glue("Tirzepatide items per 1000 list size: {region_name}")) +
             xlab("") +
-            ylab("Rate per 1000 list size"))
+            ylab("Rate per 1000 list size") +
+  theme_minimal())
           
 }
 
- plot_tirzepatide_region_strengths_patchwork <- patchwork::wrap_plots(
+ plot_tirzepatide_region_strengths_patchwork <- wrap_plots(
   `plot_tirzepatide_region_strengths_East of England`,
   plot_tirzepatide_region_strengths_London,
   plot_tirzepatide_region_strengths_Midlands,
@@ -774,11 +844,12 @@ assign(glue("plot_tirzepatide_icb_region_{region_name}"), df_tirzepatide_practic
             theme(axis.text.x = element_text(angle =90)) +
             ggtitle(glue("Tirzepatide items per 1000 list size: {region_name}")) +
             xlab("") +
-            ylab("Rate per 1000 list size"))
+            ylab("Rate per 1000 list size")  +
+  theme_minimal())
           
 }
 
- plot_tirzepatide_icb_region_patchwork <- patchwork::wrap_plots(
+ plot_tirzepatide_icb_region_patchwork <- wrap_plots(
   `plot_tirzepatide_icb_region_East of England`,
   plot_tirzepatide_icb_region_London,
   plot_tirzepatide_icb_region_Midlands,
@@ -825,7 +896,8 @@ df_orlistat_tirzepatide <- df_orlistat_icb_month_120 %>%
     names_to = "drug",
     names_prefix = "rateper1000_",
     values_to = "rateper1000") %>%
-      inner_join(df_qof_icbs,by=join_by(stp==icb_ods_code))
+      inner_join(df_qof_icbs,by=join_by(stp==icb_ods_code)) %>%
+      inner_join(df_regions)
 
 ```
 
@@ -858,81 +930,151 @@ ggsave(
   units = "cm"
 )
 
-### by region
-for (region_name in regions){
 
-plot_orlistat_tirzepatide_region <- df_orlistat_tirzepatide %>%
-  filter(region == region_name) %>%
-      ggplot(aes(x = month, y = rateper1000,color=drug)) +
-      facet_wrap(vars(icb_name)) +
-        geom_line() +
-          scale_y_continuous(labels = label_comma()) +
-            theme(axis.text.x = element_text(angle =90)) +
-            ggtitle(glue("Orlistat and tirzepatide items per 1000 list size: {region_name}")) +
-            xlab("") +
-            ylab("Rate per 1000 list size")
-          
-ggsave(
-  filename = here::here(
-    "output",
-    "icb",
-    "combined",
-    glue("combined_orlistat_tirzepatide_icb_{region_name}.png")),
-  plot_orlistat_tirzepatide_region,
-  dpi = 800,
-  width = 60,
-  height = 30,
-  units = "cm"
+
+plots <- df_orlistat_tirzepatide %>%
+  arrange(region) %>%
+  mutate(stp = factor(stp,levels = unique(stp))) %>%
+  split(.$stp) %>%
+  purrr::map(function(data_seg) {
+  ggplot(data_seg,aes(x = month, y = rateper1000,color=drug)) +
+  geom_line() +
+  scale_y_continuous(limits=c(0,max(df_orlistat_tirzepatide$rateper1000,na.rm = TRUE)+0.001)) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle =90)) +
+  xlab("") +
+  ylab("Rate per 1000 list size") +
+  theme(plot.background = element_rect(fill = data_seg$col_fill),
+  plot.title = element_text(size =8)) +
+    ggtitle(data_seg$icb_name) +
+  geom_vline(xintercept=as.POSIXct(date_tirzepatide_diab), linetype="dashed") +
+  geom_vline( xintercept=as.POSIXct(date_tirzepatide_ng ), linetype="dotted") 
+  })
+
+
+#### legends
+legend <- cowplot::get_legend(
+  plots[[1]] +  
+    theme(
+      legend.position = "bottom",
+      legend.key.size = unit(0.4, "lines"), 
+      legend.spacing.y = unit(0.2, "cm")    
+    )
+) 
+
+legend_region <- cowplot::get_legend(
+ggplot(
+df_orlistat_tirzepatide %>% 
+mutate(region = case_when(region =="North East and Yorkshire" ~ "North East and Yorkshire", .default = region)), 
+aes(x = rateper1000, y = icb_name)) +
+geom_tile(aes(fill = region)) +
+scale_fill_manual(values = c(
+"London"            =       "#8dabd371",
+"South East"        =      "#e7b6e1",
+"South West"        =      "#ffffb3",
+"Midlands"          =      "#eeb35a38",
+"North East and Yorkshire" = "#8aebe693",
+"East of England"        =  "#b6e59b8c",  
+"North West"             =  "#f344444d"
+))+ 
+theme(
+legend.byrow=TRUE,
+legend.position = "bottom",
+legend.key.size = unit(0.4, "lines"), 
+legend.spacing.y = unit(0.2, "cm")  
+)
 )
 
-}
 
 
-###  region patchwork
-for (region_name in regions){
 
-assign(glue("plot_orlistat_tirzepatide_region_{region_name}"), df_orlistat_tirzepatide %>%
-  filter(region == region_name) %>%
-   mutate(icb_name = factor(icb_name, levels = c(levels(as.factor(icb_name)),""," ","  ","    ","     ")[1:(ceiling(length(c(levels(as.factor(icb_name))))/6)*6)])) %>%
-      ggplot(aes(x = month, y = rateper1000,colour=drug)) +
-      facet_wrap(vars(icb_name),ncol=6,nrow=2, drop = FALSE) +
-        geom_line() +
-          scale_y_continuous(labels = label_comma(),limits =c(0,max_y_tirzepatide)) +
-            theme(axis.text.x = element_text(angle =90)) +
-            ggtitle(glue("Tirzepatide items per 1000 list size: {region_name}")) +
-            xlab("") +
-            ylab("Rate per 1000 list size"))
+plot_orlistat_tirzepatide_region_split <- wrap_plots(c(plots,list(legend),list(plot_spacer()),list(plot_spacer()),list(legend_region)),ncol=6,axes="collect",guides ="collect", heights=c(1,1,1,1,1,1,1,0.5)) & 
+theme(legend.position = "none")
+
+ggsave(
+  filename = here::here(
+  "output",
+  "icb",
+  "combined",
+  glue("combined_orlistat_tirzepatide_icb_split.png")),
+  plot_orlistat_tirzepatide_region_split,
+dpi = 800,
+width = 30,
+height = 30,
+units = "cm"
+)
+
+# ### by region
+# for (region_name in regions){
+
+# plot_orlistat_tirzepatide_region <- df_orlistat_tirzepatide %>%
+#   filter(region == region_name) %>%
+#       ggplot(aes(x = month, y = rateper1000,color=drug)) +
+#       facet_wrap(vars(icb_name)) +
+#         geom_line() +
+#           scale_y_continuous(labels = label_comma()) +
+#             theme(axis.text.x = element_text(angle =90)) +
+#             ggtitle(glue("Orlistat and tirzepatide items per 1000 list size")) +
+#             xlab("") +
+#             ylab("Rate per 1000 list size")
           
-}
+# ggsave(
+#   filename = here::here(
+#     "output",
+#     "icb",
+#     "combined",
+#     glue("combined_orlistat_tirzepatide_icb_{region_name}.png")),
+#   plot_orlistat_tirzepatide_region,
+#   dpi = 800,
+#   width = 60,
+#   height = 30,
+#   units = "cm"
+# )
 
- plot_orlistat_tirzepatide_region_patchwork <- patchwork::wrap_plots(
-  `plot_orlistat_tirzepatide_region_East of England`,
-  `plot_orlistat_tirzepatide_region_London`,
-  `plot_orlistat_tirzepatide_region_Midlands`,
-  `plot_orlistat_tirzepatide_region_North East and Yorkshire`,
-  `plot_orlistat_tirzepatide_region_North West`,
-  `plot_orlistat_tirzepatide_region_South East`,
-  `plot_orlistat_tirzepatide_region_South West`,
-  ncol=1, heights = c(1,1,2,1,1,1,2))
+# }
+
+
+# ###  region patchwork
+# for (region_name in regions){
+
+# assign(glue("plot_orlistat_tirzepatide_region_{region_name}"), df_orlistat_tirzepatide %>%
+#   filter(region == region_name) %>%
+#    mutate(icb_name = factor(icb_name, levels = c(levels(as.factor(icb_name)),""," ","  ","    ","     ")[1:(ceiling(length(c(levels(as.factor(icb_name))))/6)*6)])) %>%
+#       ggplot(aes(x = month, y = rateper1000,colour=drug)) +
+#       facet_wrap(vars(icb_name),ncol=6,nrow=2, drop = FALSE) +
+#         geom_line() +
+#           scale_y_continuous(labels = label_comma(),limits =c(0,max_y_tirzepatide)) +
+#             theme(axis.text.x = element_text(angle =90)) +
+#             ggtitle(glue("Tirzepatide items per 1000 list size: {region_name}")) +
+#             xlab("") +
+#             ylab("Rate per 1000 list size")  +
+#   theme_minimal())
+          
+# }
+
+#  plot_orlistat_tirzepatide_region_patchwork <- wrap_plots(
+#   `plot_orlistat_tirzepatide_region_East of England`,
+#   `plot_orlistat_tirzepatide_region_London`,
+#   `plot_orlistat_tirzepatide_region_Midlands`,
+#   `plot_orlistat_tirzepatide_region_North East and Yorkshire`,
+#   `plot_orlistat_tirzepatide_region_North West`,
+#   `plot_orlistat_tirzepatide_region_South East`,
+#   `plot_orlistat_tirzepatide_region_South West`,
+#   ncol=1, heights = c(1,1,2,1,1,1,2))
 
   
-ggsave(
-  filename = here::here(
-    "output",
-    "icb",
-    "combined",
-    glue("combined_orlistat_tirzepatide_icb_patchwork.png")),
-  plot_orlistat_tirzepatide_region_patchwork,
-  dpi = 800,
-  width = 60,
-  height = 60,
-  units = "cm"
-)
-
-
-
-
-
+# ggsave(
+#   filename = here::here(
+#     "output",
+#     "icb",
+#     "combined",
+#     glue("combined_orlistat_tirzepatide_icb_patchwork.png")),
+#   plot_orlistat_tirzepatide_region_patchwork,
+#   dpi = 800,
+#   width = 60,
+#   height = 60,
+#   units = "cm"
+# )
 ```
 
 #### QOF obesity prevalence
@@ -965,6 +1107,78 @@ df_qof_ob_icb  <- df_qof_ob %>%
    
 
 ```
+
+
+
+
+```{r}
+#| label: combine-orlistat-tirzepatide-england
+#| include: false
+
+ df_orlistat_england <- df_orlistat_practice_strength %>%
+  filter(strength == "120mg") %>%
+  group_by(month,chemical) %>%
+  summarise(items=sum(items))
+
+ df_tirzepatide_england <- df_tirzepatide_practice %>%
+  filter(bnf_name=="Mounjaro 2.5mg/0.5ml solution for injection pre-filled pens") %>%
+  group_by(month,chemical) %>%
+  summarise(items=sum(items))
+
+df_icb_stats_england <- df_icb_stats %>% 
+  group_by(month) %>%
+  summarise(total_list_size = sum(total_list_size))
+
+df_orlistat_tirzepatide_england <- df_orlistat_england %>%
+  rows_append(df_tirzepatide_england) %>%
+  inner_join(df_icb_stats_england) %>%
+  mutate(rateper1000 = items / total_list_size * 1000)
+
+
+
+plot_orlistat_tirzepatide_england <- df_orlistat_tirzepatide_england %>%
+      ggplot(aes(x = month, y = rateper1000,color=chemical )) +
+        geom_line() +
+            geom_vline(xintercept=as.POSIXct(date_tirzepatide_diab), linetype="dashed") +
+            annotate("text", y = 3.5, x = as.POSIXct(date_tirzepatide_diab-35), label = "NICE Diabetes Guidance",angle = 90) +
+    geom_vline( xintercept=as.POSIXct(date_tirzepatide_ng ), linetype="dotted") +
+    annotate("text", y = 3.5, x = as.POSIXct(date_tirzepatide_ng -35), label = "NICE Obesity Guidance",angle = 90) +
+          scale_y_continuous(labels = label_comma()) +
+            theme(axis.text.x = element_text(angle =90)) +
+            ggtitle(glue("Orlistat and tirzepatide items per 1000 list size")) +
+            xlab("") +
+            ylab("Rate per 1000 list size") + theme_classic()
+          
+ggsave(
+  filename = here::here(
+    "output",
+    "England",
+    "combined",
+    "combined_orlistat_tirzepatide_icb.png"),
+  plot_orlistat_tirzepatide_england,
+  dpi = 800,
+  width = 30,
+  height = 15,
+  units = "cm"
+)
+
+
+
+
+
+####### QOF
+df_qof_ob_england <- df_qof_ob_icb %>%
+  filter(measure =="register") %>%
+  group_by(year)  %>%
+  summarise(register=sum(value))
+
+### tofix
+# df_orlistat_tirzepatide_england_qof<- df_orlistat_tirzepatide_england %>%
+#   inner_join(df_qof_ob_england, by ="month")
+
+
+```
+
 
 
 
@@ -1013,6 +1227,7 @@ ggsave(
   height = 30,
   units = "cm"
 )
+
 
 
 ```
@@ -1070,6 +1285,12 @@ df_qof_orl_tirz_long <- df_qof_orl_tirz %>%
     names_prefix = "perregister_",
     values_to = "per_register")
 
+# check obesity per list size 
+df_qof_orl_tirz_long <- df_qof_orl_tirz_long %>%
+  mutate(obsperlist = register/total_list_size,
+         perreg1000 = per_register *1000 )  
+
+range(df_qof_orl_tirz_long$obsperlist)
 ```
 
 
@@ -1214,11 +1435,12 @@ assign(glue("plot_qof_orlistat_tirzep_region_{region_name}"), df_qof_orl_tirz_lo
             theme(axis.text.x = element_text(angle =90)) +
             ggtitle(glue("Orlistat and tirzepatide items per QOF obesity register size: {region_name}")) +
             xlab("") +
-            ylab("Rate per QOF obesity register size"))
+            ylab("Rate per QOF obesity register size")  +
+  theme_minimal())
           
 }
 
- plot_qof_orlistat_tirzep_region_patchwork <- patchwork::wrap_plots(
+ plot_qof_orlistat_tirzep_region_patchwork <- wrap_plots(
   `plot_qof_orlistat_tirzep_region_East of England`,
   `plot_qof_orlistat_tirzep_region_London`,
   `plot_qof_orlistat_tirzep_region_Midlands`,
@@ -1244,5 +1466,314 @@ ggsave(
 
 
 
+
+### colourful panels
+df_qof_orl_tirz_long <- df_qof_orl_tirz_long %>%
+  inner_join(df_regions)
+
+plots_qof_ob_icb_split <- df_qof_orl_tirz_long %>%
+  ungroup() %>%
+  arrange(region) %>%
+  mutate( icb_name = gsub("Integrated Care Board","ICB",icb_name),
+          icb_name = glue("{str_wrap(icb_name,width=30)}"),
+          icb_name = factor(icb_name,levels = unique(icb_name))) %>%
+  split(.$icb_name) %>%
+  purrr::map(function(data_seg) {
+  ggplot(data_seg,aes(x = month, y = perreg1000,color=drug)) +
+  geom_line() +
+  scale_y_continuous(limits=c(0,max(df_qof_orl_tirz_long$perreg1000,na.rm = TRUE)+0.001)) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle =90)) +
+  xlab("") +
+  ylab("Rate per 1000 QOF obesity register") +
+  theme(plot.background = element_rect(fill = data_seg$col_fill),
+  plot.title = element_text(size =8)) +
+    ggtitle(data_seg$icb_name) +
+  geom_vline(xintercept=as.POSIXct(date_tirzepatide_diab), linetype="dashed") +
+  geom_vline( xintercept=as.POSIXct(date_tirzepatide_ng ), linetype="dotted") 
+  })
+
+
+#### legends
+legend <- cowplot::get_legend(
+  plots_qof_ob_icb_split[[1]] +  
+    theme(
+      legend.position = "bottom",
+      legend.key.size = unit(0.4, "lines"), 
+      legend.spacing.y = unit(0.2, "cm")    
+    )
+) 
+
+legend_region <- cowplot::get_legend(
+ggplot(
+df_qof_orl_tirz_long %>% 
+mutate(region = case_when(region =="North East and Yorkshire" ~ "North East and Yorkshire", .default = region)), 
+aes(x = per_register, y = icb_name)) +
+geom_tile(aes(fill = region)) +
+scale_fill_manual(values = c(
+"London"            =       "#8dabd371",
+"South East"        =      "#e7b6e1",
+"South West"        =      "#ffffb3",
+"Midlands"          =      "#eeb35a38",
+"North East and Yorkshire" = "#8aebe693",
+"East of England"        =  "#b6e59b8c",  
+"North West"             =  "#f344444d"
+))+ 
+theme(
+legend.byrow=TRUE,
+legend.position = "bottom",
+legend.key.size = unit(0.4, "lines"), 
+legend.spacing.y = unit(0.2, "cm")  
+)
+)
+
+
+
+
+plot_orlistat_tirzepatide_region_split <- wrap_plots(c(plots_qof_ob_icb_split,list(legend),list(plot_spacer()),list(plot_spacer()),list(legend_region)),ncol=6,axes="collect",guides ="collect", heights=c(1,1,1,1,1,1,1,0.5)) & 
+theme(legend.position = "none")
+
+ggsave(
+  filename = here::here(
+  "output",
+  "icb",
+  "QOF",
+  glue("QOF_combined_orlistat_tirzepatide_icb_split.png")),
+  plot_orlistat_tirzepatide_region_split,
+dpi = 800,
+width = 30,
+height = 30,
+units = "cm"
+)
+
+
+
+
+```
+
+
+Tirzepatide practice variation
+
+```{r}
+#| label: tirzepatide-practice-variation
+#| include: false
+
+region_wrap_n <- 12
+
+df_tirzepatide_practice_var_month <- df_tirzepatide_practice %>%
+  left_join(
+    df_normalised_prescribing %>% select(practice, stp, month),
+    by = join_by(practice, month)
+  ) %>%
+  left_join(df_regions) %>%
+  group_by(month, practice) %>%
+  summarise(
+    items = sum(items),
+    stp = last(stp),
+    region = last(region),
+    col_fill = last(col_fill),
+    .groups = "drop"
+  ) %>%
+  inner_join(df_icb_stats_sicbl, by = join_by(stp == stp_id, month)) %>%
+  mutate(rateper1000 = items / total_list_size * 1000) %>%
+  filter(month == as.Date("2025-12-01")) %>%
+  inner_join(
+    df_qof_ob_icb_wide %>%
+      filter(month == as.Date("2024-01-01")) %>%
+      select(-month),
+    by = join_by(stp == icb_ods_code)
+  ) %>%
+  mutate(register_factor = factor(register)) %>%
+  group_by(stp) %>%
+  add_count(rateper1000, name = "rate_frequency") %>%
+  mutate(density = rate_frequency / sum(rate_frequency)) %>%
+  select(-starts_with("icb_name"))  %>%
+  ungroup() %>%
+  inner_join(df_qof_icbs, by = join_by(stp == icb_ods_code)) %>%
+  mutate(icb_name = glue("{str_wrap(icb_name,width=20)}\n({label_number_n(register)})"),
+  stp_register = glue("{stp}\n({label_number_n(register)})"),
+  region_wrap=str_wrap(region,width=region_wrap_n)) %>%
+  arrange(register) %>%
+  mutate(stp=factor(stp,levels = unique(stp)))
+                                                                                                         
+density_icb_plots <- df_tirzepatide_practice_var_month %>%
+  split(.$stp) %>%
+  purrr::map(function(data_seg) {
+
+    ggplot(data_seg, aes(x = rateper1000, y = icb_name)) +
+      geom_tile(aes(fill = density)) + 
+      scale_fill_gradient( 
+        low = "white", 
+        high = "black", 
+        limits = c(0, 0.0405), 
+        breaks = c(0, 0.02, 0.0405) ) +
+      geom_segment(
+        data = data_seg,
+        aes(
+          x = rateper1000,
+          xend = rateper1000,
+          y = 0.5,
+          yend = 0.8
+        ),
+        colour = "darkblue",
+        inherit.aes = FALSE
+      ) +
+      scale_x_continuous(
+        limits = c(0, max(df_tirzepatide_practice_var_month$rateper1000) + 0.001)
+      ) +
+      coord_flip() +
+      labs(x = "Rate of tirzepatide prescribing per 1,000 list size", y = "") +
+      theme_classic() +
+      theme(plot.background = element_rect(fill = data_seg$col_fill))
+  })
+
+legend <- cowplot::get_legend(
+  density_icb_plots[[1]] +  
+    theme(
+      legend.position = "right",
+      legend.key.size = unit(0.4, "lines"), 
+      legend.text = element_text(size = 7),   
+      legend.title = element_text(size = 8), 
+      legend.spacing.y = unit(0.2, "cm")     
+    )
+) 
+
+
+
+region_cols <- df_regions %>%
+  select(region, col_fill) %>%
+  deframe()
+
+
+legend_region <- cowplot::get_legend(
+  ggplot(
+    df_tirzepatide_practice_var_month %>% 
+      mutate(region = case_when(region =="North East and Yorkshire" ~ "North East and Yorkshire", .default = region)), 
+        aes(x = rateper1000, y = icb_name)) +
+    geom_tile(aes(fill = region)) +
+    scale_fill_manual(values = region_cols )+ 
+    theme(
+      legend.position = "right",
+      legend.key.size = unit(0.4, "lines"), 
+      legend.text = element_text(size = 7),   
+      legend.title = element_text(size = 8), 
+      legend.spacing.y = unit(0.2, "cm")  
+    )
+  )
+     
+
+density_plot <- wrap_plots(
+  c(density_icb_plots,
+  list(legend),
+  list(legend_region)),
+  nrow = 4,
+  axes = "collect",
+) &
+      theme(legend.position = "none")
+
+
+ggsave(
+  filename = here::here(
+    "output",
+    "icb",
+    "QOF",
+    "density_icb_patchwork.png"
+  ),
+  density_plot,
+  dpi = 800,
+  width = 38,
+  height = 17,
+  units = "cm"
+)
+
+
+
+######## no ICB names
+
+
+region_cols <- df_regions %>%
+  mutate(region= str_wrap(region, width= region_wrap_n)) %>%
+  select(region, col_fill) %>%
+  deframe()
+
+
+density_icb_plots_nonames <- df_tirzepatide_practice_var_month %>%
+  split(.$stp) %>%
+  purrr::map(function(data_seg) {
+
+    ggplot(data_seg, aes(x = rateper1000, y = stp_register)) +
+      geom_tile(aes(fill = density)) + 
+      scale_fill_gradient( 
+        low = "white", 
+        high = "black", 
+        limits = c(0, 0.0405), 
+        breaks = c(0, 0.02, 0.0405) ) +
+      geom_segment(
+        data = data_seg,
+        aes(
+          x = rateper1000,
+          xend = rateper1000,
+          y = 0.5,
+          yend = 0.8
+        ),
+        colour = "darkblue",
+        inherit.aes = FALSE
+      ) +
+      scale_x_continuous(
+        limits = c(0, max(df_tirzepatide_practice_var_month$rateper1000) + 0.001)
+      ) +
+      coord_flip() +
+      labs(x = "Rate of tirzepatide prescribing per 1,000 list size", y = "") +
+      theme_classic() +
+      theme(plot.background = element_rect(fill = data_seg$col_fill))
+  })
+
+
+legend_region_wrap <- cowplot::get_legend(
+  ggplot(
+    df_tirzepatide_practice_var_month , 
+        aes(x = rateper1000, y = icb_name)) +
+    geom_tile(aes(fill = region_wrap)) +
+    scale_fill_manual(values = region_cols ) + 
+    theme(
+      legend.position = "right",
+      legend.key.size = unit(0.4, "lines"), 
+      legend.text = element_text(size = 7),   
+      legend.title = element_text(size = 8), 
+      legend.spacing.y = unit(0.2, "cm")  
+    )
+  )
+
+
+
+
+density_plot_no_names <- wrap_plots(
+  c(density_icb_plots_nonames,
+  list(legend),
+  list(legend_region_wrap)),
+  nrow = 4,
+  axes = "collect",
+) &
+      theme(legend.position = "none")
+
+
+ggsave(
+  filename = here::here(
+    "output",
+    "icb",
+    "QOF",
+    "density_icb_patchwork_no_names.png"
+  ),
+  density_plot_no_names,
+  dpi = 800,
+  width = 20,
+  height = 12,
+  units = "cm"
+)
+
+
+```
+
+```{r}
 
 ```
