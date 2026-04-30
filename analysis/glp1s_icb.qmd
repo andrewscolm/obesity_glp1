@@ -1775,5 +1775,86 @@ ggsave(
 ```
 
 ```{r}
+#| label: obesity-population-correlation 
+#| include: false
+
+### icb level
+df_qof_pop_corr <- df_qof_orl_tirz %>%
+  filter(month==as.POSIXct("2024-01-01")) %>%
+  ggplot(aes(x = register, y = icb_list_size,fill=region)) +
+  geom_point(shape =21,size = 3) +
+  # geom_smooth(aes(group = 1),method=lm, se=FALSE) +
+  scale_fill_manual(values = c(
+  "London"            =       "#8dabd371",
+  "South East"        =      "#e7b6e1",
+  "South West"        =      "#ffffb3",
+  "Midlands"          =      "#eeb35a38",
+  "North East and Yorkshire" = "#8aebe693",
+  "East of England"        =  "#b6e59b8c",  
+  "North West"             =  "#f344444d"
+  )) +
+  theme_classic() +
+  xlab("QOF Obesity Register Size") +
+  ylab("Registered Patients") +
+  scale_y_continuous(labels = label_comma()) +
+  scale_x_continuous(labels = label_comma()) 
+
+
+ggsave(
+  filename = here::here(
+    "output",
+    "icb",
+    "QOF",
+    "registered_obesity_corr.png"
+  ),
+  df_qof_pop_corr,
+  dpi = 800,
+  width = 20,
+  height = 12,
+  units = "cm"
+)
+
+### practice
+df_qof_listsize_corr <- df_qof_ob %>%
+  left_join(df_qof_region) %>%
+  filter(year=="2024-25") %>%
+  ggplot(aes(x = register, y = practice_list_size ,fill=region_name)) +
+  geom_point(shape =21,size = 2) +
+  # geom_smooth(aes(group = 1),method=lm, se=FALSE) +
+  scale_fill_manual(values = c(
+    "London"            =       "#8dabd371",
+    "South East"        =      "#e7b6e1",
+    "South West"        =      "#ffffb3",
+    "Midlands"          =      "#eeb35a38",
+    "North East and Yorkshire" = "#8aebe693",
+    "East of England"        =  "#b6e59b8c",  
+    "North West"             =  "#f344444d"
+    )) +
+  theme_classic() +
+  xlab("QOF Obesity Register Size") +
+  ylab("Practice List Size") +
+  scale_y_continuous(labels = label_comma()) +
+  scale_x_continuous(labels = label_comma()) 
+
+ggsave(
+  filename = here::here(
+    "output",
+    "icb",
+    "QOF",
+    "listsize_obesity_corr.png"
+  ),
+  df_qof_listsize_corr,
+  dpi = 800,
+  width = 20,
+  height = 12,
+  units = "cm"
+)
+
 
 ```
+
+
+```{r}
+
+```
+
