@@ -3,7 +3,7 @@ title: "Obesity and GLP-1s"
 format: 
   html:
     fontsize: 11px
-    mainfont: "Arial"
+    mainfont: "Arial" 
 ---
 
 ```{r}
@@ -728,7 +728,7 @@ plot_tirzepatide_region_strengths <- df_tirzepatide_practice_strength_month %>%
   xlab("") +
   ylab("Rate per 1000 list size")
 
-
+# Figure 4
 ggsave(
   filename = here::here(
     "output",
@@ -1238,12 +1238,13 @@ df_icb_stats_england <- df_icb_stats %>%
   group_by(month) %>%
   summarise(total_list_size = sum(total_list_size))
 
+
 df_orlistat_tirzepatide_england <- df_orlistat_england %>%
   rows_append(df_tirzepatide_england) %>%
   inner_join(df_icb_stats_england) %>%
   mutate(rateper1000 = items / total_list_size * 1000)
 
-
+# Figure 1A
 plot_orlistat_tirzepatide_england <- df_orlistat_tirzepatide_england %>%
   ggplot(aes(x = month, y = rateper1000, color = chemical)) +
   geom_line() +
@@ -1479,6 +1480,7 @@ plot_qof_orlistat <- df_qof_orl_tirz %>%
   xlab("") +
   ylab("Rate per QOF obesity register size")
 
+dir.create(here::here(file.path("output", "icb", "QOF")))
 ggsave(
   filename = here::here(
     "output",
@@ -1493,6 +1495,7 @@ ggsave(
   units = "cm"
 )
 
+# Figure 1B
 plot_qof_tirzepatide <- df_qof_orl_tirz %>%
   ggplot(aes(x = month, y = perregister_tirzepatide)) +
   facet_wrap(vars(icb_name)) +
@@ -1519,6 +1522,7 @@ ggsave(
   units = "cm"
 )
 
+# Figure 1BB
 plot_qof_orlistat_tirzep <- df_qof_orl_tirz_long %>%
   ggplot(aes(x = month, y = per_register, colour = drug)) +
   facet_wrap(vars(icb_name)) +
@@ -2047,8 +2051,57 @@ ggsave(
 )
 ```
 
+# Analysis Figures
+1. Box 1: changes in NICE recommendations
+2. Figure 1A: Tirzepatide dispensing per 1000 registered patients - England
+Figure 1B: Tirzepatide dispensing per 1000 Obesity register - England
 
 ```{r}
-
+#| echo: false
+#| label: fig-1-a-dispensing-per-1000-registered-patients
+#| fig-cap: ""
+#| warning: false
 ```
 
+```{r}
+#| echo: false
+#| label: fig-1-b-dispensing-per-1000-obesity-register
+#| fig-cap: ""
+#| warning: false
+```
+
+Figure 2: Tirzepatide dispensing per 1000 list size ICB 
+
+```{r}
+#| echo: false
+#| label: fig-2-dispensing-per-1000-list-size
+#| fig-cap: ""
+#| warning: false
+```
+Figure 3: Tirzepatide dispensing per 1000 registered patients - England by aggregated strength
+
+```{r}
+#| echo: false
+#| label: fig-3-dispensing-per-1000-reg-patients-by-strength
+#| fig-cap: ""
+#| warning: false
+tirzepatide_by_strength
+```
+Figure 4. Orlistat 60mg dispensing per 1000 list size England (with tirzepatide guidance change dates)
+
+```{r}
+#| echo: false
+#| label: fig-4-orlistat-per-1000-list-size
+#| fig-cap: ""
+#| warning: false
+plot_orlistat_icb
+```
+
+Figure 5. Variation of tirzepatide prescribing rates within ICBs
+
+```{r}
+#| echo: false
+#| label: fig-4-tirzepatide-ICB-prescribing-variation
+#| fig-cap: ""
+#| warning: false
+```
