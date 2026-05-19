@@ -1,9 +1,12 @@
 ---
 title: "Obesity and GLP-1s"
+validate-yaml: false
 format: 
   html:
     fontsize: 11px
     mainfont: "Arial"
+comments:
+  enabled: true  
 ---
 
 ```{r}
@@ -1229,7 +1232,7 @@ df_orlistat_england <- df_orlistat_practice_strength %>%
 
 df_tirzepatide_england <- df_tirzepatide_practice %>%
   filter(
-    bnf_name == "Mounjaro 2.5mg/0.5ml solution for injection pre-filled pens"
+    !str_detect(bnf_name, "0.5ml")
   ) %>%
   group_by(month, chemical) %>%
   summarise(items = sum(items))

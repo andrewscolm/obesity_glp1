@@ -2,11 +2,15 @@
   "name": "Release - Quarto Codespaces",
   "image": "ghcr.io/mcanouil/quarto-codespaces:latest",
   "remoteUser": "vscode",
+
+  "postCreateCommand": "quarto add vgreg/quarto-comments --no-prompt",
+
   "features": {
     "ghcr.io/rocker-org/devcontainer-features/quarto-cli:1": {
       "version": "release"
     }
   },
+
   "customizations": {
     "vscode": {
       "extensions": [
@@ -23,9 +27,16 @@
         "ms-toolsai.jupyter",
         "Posit.air-vscode"
       ],
+
       "settings": {
-        "r.rterm.option": ["--no-save", "--no-restore-data", "--quiet"],
+        "r.rterm.option": [
+          "--no-save",
+          "--no-restore-data",
+          "--quiet"
+        ],
+
         "r.useRenvLibPath": true,
+
         "[r]": {
           "editor.defaultFormatter": "Posit.air-vscode",
           "editor.formatOnSave": true
