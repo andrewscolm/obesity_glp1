@@ -1,0 +1,157 @@
+---
+title: "Obesity and GLP-1s"
+validate-yaml: false
+format: 
+  html:
+    fontsize: 11px
+    mainfont: "Arial"
+comments:
+  enabled: true  
+---
+
+# OpenPrescribing Tirzepatide and Obesity Protocol
+	
+
+GitHub repository: https://github.com/andrewscolm/obesity_glp1 
+
+### Project team / authors
+
+Colm Andrews
+Amy Gimma
+Will Hulme
+Elizabeth Morris 
+Nerys Astbury
+Rich Croker
+Andrew Brown
+Andrea Schaffer
+
+
+
+## Background
+
+### What is the research question?
+
+How has prescribing of obesity medicines in primary care in England changed over time? And how does prescribing vary by ICB? Do ICBs with the highest obesity rates also have
+the highest rates of GLP-1 prescribing?
+
+### What is already known about the problem?
+
+As of the most recent Health Survey for England in 2022, 29% of adults in England were living with obesity and 64% of adults were overweight or living with obesity.1 
+The National Institute for Health and Care Excellence (NICE) recommends the use of pharmaceutical interventions for diabetes and weight management in some cases. In England, tirzepatide and orlistat are available for weight management through the NHS in primary, specialist, and secondary care settings, while liraglutide and semaglutide are available through specialist or secondary care settings for weight management. Orlistat is also available in pharmacies at low doses.4 
+
+### What are the gaps in knowledge?
+
+Tirzepatide use continues to increase in primary care settings in England and orlistat continues to be prescribed for some patients. Despite this, to date little has been published about the use of tirzepatide in primary care. 
+
+### How will this work address these gaps?
+
+We aim to use dispensing data from the English Prescribing Dataset (EPD) to describe the patterns of use of the weight medications tirzepatide and orlistat. Understanding variation in uptake of weight medications may help identify inequities in access, and differences in implementation of national guidance, during the rollout of weight management pathways in England.
+
+### Objectives 
+
+#### Primary Objectives
+
+Describe tirzepatide prescribing by GPs in England, how it has changed over time, and how it varies across Integrated Care Boards.
+Secondary Objectives
+
+i) Describe how tirzepatide prescribing varies by obesity rate at the level of Integrated Care Boards. 
+ii) Describe the impact of tirzepatide prescribing on the prescribing of orlistat.
+
+
+## Methods 
+
+### Study Design
+
+Study type: A descriptive study giving monthly rates of i) tirzepatide and ii) orlistat prescribing over time and across ICBs.
+
+Index date: i) Time trends will be monthly, from January 2023 to the most recent available full month. ii) Analysis of prescribing rates per obesity prevalence will be from January 2024 to December 2025 with the 2024/25 obesity prevalence as the denominator. 
+
+### Data sources
+
+Data source
+OpenPrescribing – monthly prescribing (dispensing) of all medicines in England
+ QOF obesity register – yearly practice-level data on people with obesity
+
+### Study Population 
+
+#### Inclusion / Exclusion Criteria
+
+We will extract all available prescribing data, limited to institutions with setting code 4 - general practices, according to the NHS Digital dataset of practice characteristics(9).This excludes all other organisations such as prisons and out-of-hours services as they are not represented fully or consistently in our dataset since many of these prescriptions would not be dispensed in community pharmacies.
+
+### Drug Definition
+
+Tirzepatide will be defined by BNF codes starting 0601023AZ. All strengths will be included in the initial analysis, but the final analysis will be restricted to strengths included in the BNF guidance (namely 2.5mg/0.6ml, 5mg/0.6ml, 7.5mg/0.6ml, 10mg/0.6ml, 12.5mg/0.6ml and 15mg/0.6ml). 
+
+Orlistat will be defined by BNF codes starting 0405010P0. All strengths will be included in the initial analysis, but the final analysis will be restricted to 120mg strength as indicated in the BNF guidance.
+
+For each month tirzepatide and orlistat dispensing will be extracted at the practice level and aggregated up to ICB and regional levels.
+
+### Study Measures
+
+We will use GP data from OpenPrescribing to extract monthly data for the following measures:
+i) Rate of tirzepatide prescribing per 1000 registered patients
+ii) Rate of tirzepatide prescribing per 1000 obesity register size
+iii) Rate of orlistat prescribing per 1000 registered patients
+iv) Rate of orlistat prescribing per 1000 obesity register size
+
+### Covariates 
+
+The above described measures will be stratified by the following:
+Geographic:
+Region
+Integrated Care Board
+
+### Statistical Analysis 
+
+We will use descriptive plots to show i) prescribing rates over time ii) the variation of prescribing rates within ICBs.
+
+### Limitations 
+This study only captures medications prescribed in a primary care setting. It does not capture prescribing via tier 3 weight management services or via private prescribing. OpenPrescribing data consists of the openly available English Prescribing dataset (EPD) which is aggregated at practice level and does not include any patient information. We are unable to link this with person-level data. As such we are unable to investigate the impact of inequalities on prescribing rates.  
+
+The eligibility criteria for the QOF obesity register is not consistent year to year. Most QOF indicators were suspended between 2021 and April 2022(11). The QOF obesity is released yearly whereas our dispensing data was monthly. The QOF obesity register is not directly comparable longitudinally. We are, therefore, unable to look at QOF obesity register dates over multiple years. The  QOF obesity register likely underestimate true obesity prevalence and 
+
+
+Tirzepatide may be prescribed for type 2 diabetes, obesity/weight management, possibly both. The English Prescribing Dataset does not include indication-level prescribing data. We are, therefore, unable to tell the indication for treatment. 
+
+## Results
+
+Table Shells / Mockup Figures
+Example plots:
+ i) prescribing rates over time
+
+ ii) the variation of prescribing rates within ICBs. This example would be amended to show prescribing rate (x-axis) per practice (blue dot), overall density of prescribing (blue-scale background) for each ICB (y-axis) 
+
+We are aiming for a total of 6 figures, tables or boxes (with additionals included in the supplementary materials). 
+
+Box 1: changes in NICE recommendations
+
+Figure 1A: Tirzepatide dispensing per 1000 registered patients - England
+
+
+
+Figure 1B: Tirzepatide dispensing per 1000 Obesity register - England
+Figure 2: Tirzepatide dispensing per 1000 list size ICB e.g. 
+Tirzepatide dispensing per 1000 registered patients - England by aggregated strength
+
+Orlistat 60mg dispensing per 1000 list size England (with tirzepatide guidance change dates)
+
+Variation of tirzepatide prescribing rates within ICBs
+
+
+Supplementary 
+Tirzepatide dispensing per 1000 registered patients - ICB by aggregated strength
+Tirzepatide dispensing per 1000 Obesity register - ICB
+Maybe Correlation of registered patients and QOF obesity register A) at ICB level, B) (optionally) at practice level.       
+
+Orlistat 60mg dispensing per 1000 list size ICB (with tirzepatide guidance change dates)     
+
+
+
+References 
+
+
+1.	England, N. H. S. NHS England » Obesity. https://www.england.nhs.uk/ourwork/prevention/obesity/.
+2.	Health Survey for England, 2022 Part 2. NHS England Digital https://digital.nhs.uk/data-and-information/publications/statistical/health-survey-for-england/2022-part-2.
+3.	Moiz, A. et al. Mechanisms of GLP-1 receptor agonist-induced weight loss: A review of central and peripheral pathways in appetite and energy regulation. Am. J. Med. 138, 934–940 (2025).
+4.	NICE Guideline 246: Overweight and Obesity Management. https://www.nice.org.uk/guidance/ng246/resources/overweight-and-obesity-management-pdf-66143959958725 (2025).
+
