@@ -7,7 +7,7 @@ format:
     mainfont: "Arial"
 comments:
   enabled: true  
-    mainfont: "Arial" 
+mainfont: "Arial" 
 ---
 
 ```{r}
@@ -713,7 +713,7 @@ df <- tibble(df_tirzepatide_practice_strength_month %>% select(region)) %>%
     date_ng = as.POSIXct(date_tirzepatide_ng)
   )
 
-
+# Figure 4
 plot_tirzepatide_region_strengths <- df_tirzepatide_practice_strength_month %>%
   ggplot(aes(x = month, y = rateper1000, color = strength)) +
   geom_vline(
@@ -732,7 +732,7 @@ plot_tirzepatide_region_strengths <- df_tirzepatide_practice_strength_month %>%
   xlab("") +
   ylab("Rate per 1000 list size")
 
-# Figure 4
+
 ggsave(
   filename = here::here(
     "output",
@@ -2089,7 +2089,7 @@ Figure 3: Tirzepatide dispensing per 1000 registered patients - England by aggre
 #| label: fig-3-dispensing-per-1000-reg-patients-by-strength
 #| fig-cap: ""
 #| warning: false
-tirzepatide_by_strength
+#tirzepatide_by_strength
 ```
 Figure 4. Orlistat 60mg dispensing per 1000 list size England (with tirzepatide guidance change dates)
 
@@ -2098,7 +2098,7 @@ Figure 4. Orlistat 60mg dispensing per 1000 list size England (with tirzepatide 
 #| label: fig-4-orlistat-per-1000-list-size
 #| fig-cap: ""
 #| warning: false
-plot_orlistat_icb
+#plot_orlistat_icb
 ```
 
 Figure 5. Variation of tirzepatide prescribing rates within ICBs
