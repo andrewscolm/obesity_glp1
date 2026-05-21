@@ -33,28 +33,46 @@ library(tibble)
 date_tirzepatide_ng <- as.Date("2024-12-23")
 date_tirzepatide_diab <- as.Date("2023-10-25")
 
-df_normalised_prescribing <- read_csv(here::here(
-  "data",
-  "normalised_prescribing.csv.gz"
-))
-df_tirzepatide_practice <- read_csv(here::here(
-  "data",
-  "tirzepatide_practice.csv.gz"
-))
+# ICB names arranged alphabetically by region
+region_sorted_icb_names <- df_tirzepatide_practice_month %>%
+  arrange(region, icb_name) %>%
+  select(region, icb_name) %>%
+  distinct() %>%
+  pull(icb_name)
 
+df_tirzepatide_practice_strength_month <- readRDS(
+  here::here("data", "df_tirzepatide_practice_strength_month.rds")
+)
 
-### practice statistics data
-df_practice_stats <- read_csv(here::here(
-  "data",
-  "practice_info_full.csv.gz"
-)) ### as far back as 2015
+df_tirzepatide_practice_month <- readRDS(
+  here::here("data", "df_tirzepatide_practice_month.rds")
+)
 
-### ccgs info
-df_hscic_ccgs <- read_csv(here::here(
-  "data",
-  "practice_ccgs.csv.gz"
-)) %>%
-  select("code", "name", "stp_id", "regional_team_id", "org_type")
+df_orlistat_icb_month <- readRDS(
+  here::here("data", "df_orlistat_icb_month.rds")
+)
+
+# df_normalised_prescribing <- read_csv(here::here(
+#   "data",
+#   "normalised_prescribing.csv.gz"
+# ))
+# df_tirzepatide_practice <- read_csv(here::here(
+#   "data",
+#   "tirzepatide_practice.csv.gz"
+# ))
+
+# ### practice statistics data
+# df_practice_stats <- read_csv(here::here(
+#   "data",
+#   "practice_info_full.csv.gz"
+# )) ### as far back as 2015
+
+# ### ccgs info
+# df_hscic_ccgs <- read_csv(here::here(
+#   "data",
+#   "practice_ccgs.csv.gz"
+# )) %>%
+#   select("code", "name", "stp_id", "regional_team_id", "org_type")
 
 ### region info
 df_regions <- read_csv(here::here(
@@ -75,86 +93,40 @@ df_regions <- read_csv(here::here(
     )
   )
 
+region_palette_light <- deframe(df_regions[, c(2, 3)])
+
 regions <- df_regions %>%
   pull(region)
 
-### QOF Obesity prevalence
-df_qof_ob <- read_csv(here::here("data", "qof", "prevalence.csv"))
+# ### QOF Obesity prevalence
+# df_qof_ob <- read_csv(here::here("data", "qof", "prevalence.csv"))
 
-### QOF regions
-df_qof_region <- read_csv(here::here("data", "qof", "geography.csv"))
+# ### QOF regions
+# df_qof_region <- read_csv(here::here("data", "qof", "geography.csv"))
 
-df_qof_icbs <- df_qof_region %>%
-  filter(year == "2024-25") %>%
-  group_by(icb_ods_code) %>%
-  summarise(icb_ods_code = last(icb_ods_code), icb_name = last(icb_name)) %>%
-  mutate(
-    icb_name = gsub("Integrated Care Board", "ICB", icb_name),
-    # icb_name = gsub("ICB","",icb_name),
-    #   icb_name = gsub("NHS ","",icb_name),
-    icb_name = str_wrap(icb_name, width = 33)
-  )
+# df_qof_icbs <- df_qof_region %>%
+#   filter(year == "2024-25") %>%
+#   group_by(icb_ods_code) %>%
+#   summarise(icb_ods_code = last(icb_ods_code), icb_name = last(icb_name)) %>%
+#   mutate(
+#     icb_name = gsub("Integrated Care Board", "ICB", icb_name),
+#     # icb_name = gsub("ICB","",icb_name),
+#     #   icb_name = gsub("NHS ","",icb_name),
+#     icb_name = str_wrap(icb_name, width = 33)
+#   )
 
-df_icb_stats_sicbl <- df_practice_stats %>%
-  left_join(df_hscic_ccgs, by = join_by(pct_id == code)) %>%
-  group_by(stp_id, month) %>%
-  summarise(total_list_size = sum(total_list_size, na.rm = TRUE)) %>%
-  drop_na(stp_id)
+# df_icb_stats_sicbl <- df_practice_stats %>%
+#   left_join(df_hscic_ccgs, by = join_by(pct_id == code)) %>%
+#   group_by(stp_id, month) %>%
+#   summarise(total_list_size = sum(total_list_size, na.rm = TRUE)) %>%
+#   drop_na(stp_id)
 ```
 
 ```{r}
-#| label: tirzepitide-cleaning
+#| label: data-cleaning
 #| include: false
-df_tirzepatide_practice_strength <- df_tirzepatide_practice %>%
-  mutate(
-    strength = gsub("[^0-9/.]", "", bnf_name),
-    strength = gsub("2.4", "", strength),
-    strength = gsub("/", "mg / ", strength),
-    strength = glue("{strength}ml")
-  )
-
-df_tirzepatide_practice_strength_month <- df_tirzepatide_practice_strength %>%
-  left_join(
-    df_normalised_prescribing %>% select(practice, stp, month),
-    by = join_by(practice, month)
-  ) %>%
-  left_join(df_regions) %>%
-  group_by(month, strength, region, stp) %>%
-  summarise(
-    items = sum(items),
-    stp = last(stp),
-    region = last(region)
-  ) %>%
-  ungroup() %>% ##5634
-  inner_join(df_icb_stats_sicbl, by = join_by(stp == stp_id, month)) %>%
-  inner_join(df_qof_icbs, by = join_by(stp == icb_ods_code)) %>%
-  mutate(rateper1000 = items / total_list_size * 1000) ##5634
 
 
-df_tirzepatide_practice_month <- df_tirzepatide_practice %>%
-  left_join(
-    df_normalised_prescribing %>% select(practice, stp, month),
-    by = join_by(practice, month)
-  ) %>%
-  left_join(df_regions) %>%
-  group_by(month, region, stp) %>%
-  summarise(
-    items = sum(items),
-    stp = last(stp),
-    region = last(region)
-  ) %>%
-  ungroup() %>% ##963
-  inner_join(df_icb_stats_sicbl, by = join_by(stp == stp_id, month)) %>%
-  inner_join(df_qof_icbs, by = join_by(stp == icb_ods_code)) %>%
-  mutate(rateper1000 = items / total_list_size * 1000) ##963
-
-df_tirzepatide_practice_strength_month_plot <- tibble(
-  df_tirzepatide_practice_strength_month %>% select(region)
-) %>%
-  mutate(
-    date_dm = as.POSIXct(date_tirzepatide_diab),
-    date_ng = as.POSIXct(date_tirzepatide_ng)
-  )
 ```
 
 
@@ -290,6 +262,7 @@ Figure 1B: Tirzepatide dispensing per 1000 Obesity register - England
 #| label: fig-1-b-dispensing-per-1000-obesity-register
 #| fig-cap: Tirzepatide dispensing per 1000 Obesity register - England
 #| warning: false
+ggplot()
 ```
 
 Figure 2: Tirzepatide dispensing per 1000 list size ICB
@@ -308,6 +281,7 @@ Figure 3. Tirzepatide dispensing per 1000 registered patients - England by aggre
 #| fig-cap: "Tirzepatide dispensing per 1000 registered patients - England by aggregated strength"
 #| warning: false
 # Figure 4
+
 plot_tirzepatide_region_strengths <- df_tirzepatide_practice_strength_month %>%
   ggplot(aes(x = month, y = rateper1000, color = strength)) +
   geom_vline(
@@ -337,8 +311,18 @@ Figure 4. Orlistat 60mg dispensing per 1000 list size England (with tirzepatide 
 #| label: fig-4-orlistat-per-1000-list-size
 #| fig-cap: "Orlistat 60mg dispensing per 1000 list size England (with tirzepatide guidance change dates)"
 #| warning: false
-#| 
-#plot_orlistat_icb
+plot_orlistat_icb_low <- df_orlistat_icb_month %>%
+  filter(strength == "60mg") %>%
+  ggplot(aes(x = month, y = rateper1000)) +
+  facet_wrap(vars(icb_name)) +
+  geom_line(color = "blue") +
+  scale_y_continuous(labels = label_comma()) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle(glue("Orlistat items per 1000 list size")) +
+  xlab("") +
+  ylab("Rate per 1000 list size")
+
+plot_orlistat_icb_low
 ```
 
 Figure 5. Variation of tirzepatide prescribing rates within ICBs
