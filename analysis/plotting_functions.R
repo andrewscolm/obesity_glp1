@@ -14,7 +14,8 @@ theme_empty_icb <- theme_bw() +
     axis.ticks.y = element_blank()
   )
 
-get_region_light_palette <- function(regions_only = FALSE) {
+get_region_light_palette <- function(list_names) {
+  stop() # turn into named list
   col_pal <- c(
     "East of England" = "#b6e59b8c",
     "London" = "#8dabd371",
@@ -170,7 +171,7 @@ plot_icb_tirzepatide_strength <- function(df, icb_name, col_pal) {
 
   df_tirzepatide_practice_strength_month %>%
     filter(icb_name == icbname) %>%
-    ggplot(aes(x = month, y = rateper1000, color = strength)) +
+    ggplot() +
     geom_vline(
       xintercept = as.POSIXct(date_tirzepatide_diab),
       linetype = "dashed"
@@ -179,8 +180,9 @@ plot_icb_tirzepatide_strength <- function(df, icb_name, col_pal) {
       xintercept = as.POSIXct(date_tirzepatide_ng),
       linetype = "dotted"
     ) +
-    geom_line() +
+    geom_line(aes(x = month, y = rateper1000, color = strength)) +
     scale_y_continuous(labels = label_comma()) +
+    guides(color = "none") +
     ggtitle(icb_title_name) +
     xlab("") +
     ylab("") +
@@ -189,7 +191,8 @@ plot_icb_tirzepatide_strength <- function(df, icb_name, col_pal) {
 }
 
 plot_by_icb_sorted_by_region_with_background <- function(
-  df = df_tirzepatide_practice_month,
+  df,
+  plot_expr,
   save_png = FALSE
 ) {
   # ICB plots with one plot per ICB, with all other icb lines plotted in grey for context.
@@ -214,11 +217,12 @@ plot_by_icb_sorted_by_region_with_background <- function(
   plots <- purrr::map(
     icb_names,
     function(icb_name) {
-      plot_icb_with_background_color(
-        df = df_tirzepatide_practice_month,
-        icb_name = icb_name,
-        col_pal = col_pal
-      )
+      # plot_icb_with_background_color(
+      #   df = df_tirzepatide_practice_month,
+      #   icb_name = icb_name,
+      #   col_pal = col_pal
+      # )
+      eval(plot_expr)
     }
   )
 
@@ -229,8 +233,7 @@ plot_by_icb_sorted_by_region_with_background <- function(
   )
 
   icb_region_legend <- get_col_pal_legend(
-    region_light_palette,
-    line_widths = c(1, 1, 1, rep(6, 7))
+    region_light_palette(list_names = legend_list_names)
   )
 
   y_label <- patchwork_y_label()
@@ -260,7 +263,39 @@ plot_by_icb_sorted_by_region_with_background <- function(
 
 prev_diff <- diff
 t <- Sys.time()
-plot_by_icb_sorted_by_region_with_background(save_png = T)
+plot_by_icb_sorted_by_region_with_background(
+  df = df_tirzepatide_practice_month,
+  plot_expr = expr(
+    plot_icb_with_background_color(
+      df = df_tirzepatide_practice_month,
+      icb_name = icb_name,
+      col_pal = col_pal
+    )
+  ),
+  save_png = F
+)
+
+diff <- Sys.time() - t
+
+prev_diff
+diff
+
+
+# ============
+prev_diff <- diff
+t <- Sys.time()
+plot_by_icb_sorted_by_region_with_background(
+  df = df_tirzepatide_practice_month,
+  plot_expr = expr(
+    plot_icb_tirzepatide_strength(
+      df = df_tirzepatide_practice_strength_month,
+      icb_name = icb_name,
+      col_pal = col_pal
+    )
+  ),
+  save_png = F
+)
+
 diff <- Sys.time() - t
 
 prev_diff
