@@ -1,12 +1,11 @@
 library(tidyverse)
-library(foreach)
-library(doParallel)
-library(ragg)
 
-# df_by_icb <- split(df, df_tirzepatide_practice_month$icb_name)
-# df_by_region <- split(df, df_tirzepatide_practice_month$region)
+df_tirzepatide_practice_month <- readRDS(
+  here::here("data", "df_tirzepatide_practice_month.rds")
+)
 
-icb_panel_theme <- theme_bw() +
+
+theme_empty_icb <- theme_bw() +
   theme(
     text = element_text(size = 15),
     axis.text.x = element_blank(),
@@ -100,6 +99,8 @@ plot_icb_with_background_color <- function(df, icb_name, col_pal) {
     slice_head(n = 1) %>%
     pull(region)
 
+  background_color <- col_pal[current_region]
+
   df <- df %>%
     mutate(
       priority = factor(
@@ -116,8 +117,6 @@ plot_icb_with_background_color <- function(df, icb_name, col_pal) {
         TRUE ~ "ICB other"
       )
     )
-
-  background_color = col_pal[current_region]
 
   ggplot(
     data = df,
@@ -143,20 +142,51 @@ plot_icb_with_background_color <- function(df, icb_name, col_pal) {
       values = col_pal,
       guide = "none"
     ) +
-    icb_panel_theme +
-    ggtitle(icb_title_name) +
-    theme(
-      plot.background = element_rect(fill = background_color),
-      text = element_text(size = 15),
-      axis.text.x = element_blank(),
-      axis.ticks.x = element_blank(),
-      axis.text.y = element_blank(),
-      axis.ticks.y = element_blank()
+    scale_y_continuous(
+      labels = label_comma(),
+      limits = c(0, max(df$rateper1000, na.rm = T))
     ) +
+    ggtitle(icb_title_name) +
+    theme_empty_icb +
+    theme(plot.background = element_rect(fill = background_color)) +
     xlab("") +
     ylab("")
 }
 
+plot_icb_tirzepatide_strength <- function(df, icb_name, col_pal) {
+  icbname <- icb_name
+
+  icb_title_name <- icbname %>%
+    str_remove_all("NHS | ICB") %>%
+    str_squish() %>%
+    replace_last_space_firstn(., n = 29)
+
+  current_region <- df %>%
+    filter(icb_name == icbname) %>%
+    slice_head(n = 1) %>%
+    pull(region)
+
+  background_color <- col_pal[current_region]
+
+  df_tirzepatide_practice_strength_month %>%
+    filter(icb_name == icbname) %>%
+    ggplot(aes(x = month, y = rateper1000, color = strength)) +
+    geom_vline(
+      xintercept = as.POSIXct(date_tirzepatide_diab),
+      linetype = "dashed"
+    ) +
+    geom_vline(
+      xintercept = as.POSIXct(date_tirzepatide_ng),
+      linetype = "dotted"
+    ) +
+    geom_line() +
+    scale_y_continuous(labels = label_comma()) +
+    ggtitle(icb_title_name) +
+    xlab("") +
+    ylab("") +
+    theme_empty_icb +
+    theme(plot.background = element_rect(fill = background_color))
+}
 
 plot_by_icb_sorted_by_region_with_background <- function(
   df = df_tirzepatide_practice_month,
@@ -180,40 +210,17 @@ plot_by_icb_sorted_by_region_with_background <- function(
   })
 
   region_light_palette <- get_region_light_palette()
-  plots <- purrr::map(icb_names[1], function(icb_name) {
-    plot_icb_with_background_color(
-      df = df_tirzepatide_practice_month,
-      icb_name = icb_name,
-      col_pal = col_pal
-    )
-  })
 
-  # How many cores does your CPU have
-  n_cores <- detectCores()
-  n_cores
-
-  # Register cluster
-  cluster <- makeCluster(n_cores - 1)
-  registerDoParallel(cluster)
-
-  # plots <- foreach(
-  #   i = seq_along(icb_names),
-  #   .packages = c("dplyr", "ggplot2", "stringr"),
-  #   .export = c(
-  #     "plot_icb_with_background_color",
-  #     "replace_last_space_firstn",
-  #     "icb_panel_theme"
-  #   )
-  # ) %dopar%
-  #   {
-  #     plot_icb_with_background_color(
-  #       df = df,
-  #       icb_name = icb_names[i],
-  #       col_pal = region_light_palette
-  #     )
-  #   }
-
-  # stopCluster(cl = cluster)
+  plots <- purrr::map(
+    icb_names,
+    function(icb_name) {
+      plot_icb_with_background_color(
+        df = df_tirzepatide_practice_month,
+        icb_name = icb_name,
+        col_pal = col_pal
+      )
+    }
+  )
 
   plot_patchwork <- patchwork::wrap_plots(
     plotlist = plots,
@@ -241,8 +248,7 @@ plot_by_icb_sorted_by_region_with_background <- function(
     ggsave(
       plot_full_layout,
       filename = here::here("output", "protocol", "tirzepitide_icb_region.png"),
-      device = ragg::agg_png,
-      dpi = 300,
+      dpi = 100,
       width = 80,
       height = 50,
       units = "cm"
@@ -252,6 +258,10 @@ plot_by_icb_sorted_by_region_with_background <- function(
   plot_full_layout
 }
 
+prev_diff <- diff
 t <- Sys.time()
-plot_by_icb_sorted_by_region_with_background()
-print(Sys.time() - t)
+plot_by_icb_sorted_by_region_with_background(save_png = T)
+diff <- Sys.time() - t
+
+prev_diff
+diff
