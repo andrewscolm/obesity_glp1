@@ -1,9 +1,61 @@
 library(tidyverse)
+library(patchwork)
 
-df_tirzepatide_practice_month <- readRDS(
-  here::here("data", "df_tirzepatide_practice_month.rds")
-)
+df_tirzepatide_practice_month <-
+  readRDS(here::here("data", "df_tirzepatide_practice_month.rds"))
 
+df_tirzepatide_practice_strength_month <-
+  readRDS(here::here("data", "df_tirzepatide_practice_strength_month.rds")) %>%
+  arrange(strength) %>%
+  rename(original_strength = strength) %>%
+  mutate(
+    strength = factor(
+      case_when(
+        original_strength %in% c("2.5mg / 0.5ml", "2.5mg / 0.6ml") ~
+          "2.5mg / 0.5ml or 2.5mg / 0.6ml",
+        original_strength %in% c("5mg / 0.5ml", "5mg / 0.6ml") ~
+          "5mg / 0.5ml or 5mg / 0.6ml",
+        T ~ original_strength
+      ),
+      levels = c(
+        "2.5mg / 0.5ml or 2.5mg / 0.6ml",
+        "5mg / 0.5ml or 5mg / 0.6ml",
+        "7.5mg / 0.6ml",
+        "10mg / 0.6ml",
+        "12.5mg / 0.6ml",
+        "15mg / 0.6ml"
+      )
+    )
+  )
+
+# Formats ICB names by replacing the last space in the first n characters of a string with a given string (default is 20 and "\n"). This is useful for formatting ICB names for plotting, ensuring that the last word in the first 20 characters is separated by an underscore for better readability in plot titles or labels.
+replace_last_space_firstn <- function(x, n = 24, replacement = "\n") {
+  sapply(
+    x,
+    function(str) {
+      # Get first n characters (or full string if shorter)
+      prefix <- substr(str, 1, n)
+
+      # Find positions of whitespace in that prefix
+      space_positions <- gregexpr("\\s", prefix)[[1]]
+
+      # If fewer than n char or no whitespace found, return original string
+      if (nchar(str) <= n || space_positions[1] == -1) {
+        return(str)
+      }
+
+      # Get last whitespace position within first n chars
+      last_space <- tail(space_positions, 1)
+
+      # Replace that whitespace
+      substr(prefix, last_space, last_space) <- replacement
+
+      # Reconstruct full string
+      paste0(prefix, substr(str, n + 1, nchar(str)))
+    },
+    USE.NAMES = FALSE
+  )
+}
 
 theme_empty_icb <- theme_bw() +
   theme(
@@ -14,38 +66,48 @@ theme_empty_icb <- theme_bw() +
     axis.ticks.y = element_blank()
   )
 
-get_region_light_palette <- function(list_names) {
-  stop() # turn into named list
-  col_pal <- c(
-    "East of England" = "#b6e59b8c",
-    "London" = "#8dabd371",
-    "Midlands" = "#eeb35a38",
-    "North East and Yorkshire" = "#8aebe693",
-    "North West" = "#f344444d",
-    "South East" = "#e7b6e1",
-    "South West" = "#ffffb3"
-  )
-
-  if (!regions_only) {
-    col_pal <- c(
-      "Current ICB" = "violetred3",
-      "ICB in region" = "dodgerblue3",
-      "ICB other" = "grey80",
-      col_pal
+get_color_palette <- function(palette_names) {
+  col_pal <-
+    list(
+      regions = c(
+        "East of England" = "#b6e59b8c",
+        "London" = "#8dabd371",
+        "Midlands" = "#eeb35a38",
+        "North East and Yorkshire" = "#8aebe693",
+        "North West" = "#f344444d",
+        "South East" = "#e7b6e1",
+        "South West" = "#ffffb3"
+      ),
+      icb_3 = c(
+        "Current ICB" = "#e84a5f",
+        "ICB in region" = "#2f9599",
+        "ICB other" = "#b9bbbb"
+      ),
+      # https://www.flerlagetwins.com/2021/06/datafam-colors-color-palette.html
+      tirz_strengths_5 = c(
+        "2.5mg / 0.5ml and 2.5mg / 0.6ml" = "#99b898",
+        "5mg / 0.5ml and 5mg / 0.6ml" = "#feceab",
+        "7.5mg / 0.6ml" = "#ff847c",
+        "10mg / 0.6ml" = "#57dfd8",
+        "12.5mg / 0.6ml" = "#e84a5f",
+        "15mg / 0.6ml" = "#2f9599"
+      )
     )
-  }
 
-  return(col_pal)
+  do.call(c, unname(col_pal[c(palette_names)]))
 }
 
 # Create a separate plot with the legend only
 get_col_pal_legend <- function(
-  col_pal,
-  line_widths = NULL
+  palette_names,
+  line_widths = NULL,
+  guide_title = NULL
 ) {
   if (is.null(line_widths)) {
     line_widths <- 1
   }
+
+  col_pal <- get_color_palette(palette_names)
   tibble(
     legend_label = factor(
       names(col_pal),
@@ -57,7 +119,7 @@ get_col_pal_legend <- function(
     scale_color_manual(
       values = col_pal,
       guide = guide_legend(
-        title = "",
+        title = guide_title,
         direction = "horizontal",
         nrow = 1,
         byrow = TRUE,
@@ -69,9 +131,12 @@ get_col_pal_legend <- function(
       legend.position = "bottom",
       legend.direction = "horizontal",
       legend.box = "horizontal",
-      legend.text = element_text(size = 22)
+      legend.text = element_text(size = 22),
+      legend.title = element_text(size = 22, face = "bold")
     )
 }
+
+# get_col_pal_legend( palette_names = "icb_3")
 
 patchwork_y_label <- function(text = "Rate per 1000 registered patients") {
   ggplot() +
@@ -86,9 +151,11 @@ patchwork_y_label <- function(text = "Rate per 1000 registered patients") {
     theme_void()
 }
 
-plot_icb_with_background_color <- function(df, icb_name, col_pal) {
+plot_icb_with_background_color <- function(df, icb_name) {
   icbname <- icb_name
   #1. Create main plot
+  #browser()
+  col_pal <- get_color_palette(c("icb_3", "regions"))
 
   icb_title_name <- icbname %>%
     str_remove_all("NHS | ICB") %>%
@@ -200,6 +267,7 @@ plot_by_icb_sorted_by_region_with_background <- function(
   # 42 ICBs, so 6 rows and 7 columns for patchwork
   n_icbs <- 42
   nrows_icb_plot = 6
+  ncols_icb_plot = 7
   # ICB names arranged alphabetically by region
 
   icb_names <- df %>%
@@ -212,17 +280,14 @@ plot_by_icb_sorted_by_region_with_background <- function(
     glue("plot_tirzepatide_icb_{x}")
   })
 
-  region_light_palette <- get_region_light_palette()
-
   plots <- purrr::map(
     icb_names,
     function(icb_name) {
-      # plot_icb_with_background_color(
-      #   df = df_tirzepatide_practice_month,
-      #   icb_name = icb_name,
-      #   col_pal = col_pal
-      # )
-      eval(plot_expr)
+      plot_icb_with_background_color(
+        df = df_tirzepatide_practice_month,
+        icb_name = icb_name
+      )
+      # eval(plot_expr)
     }
   )
 
@@ -232,8 +297,15 @@ plot_by_icb_sorted_by_region_with_background <- function(
     ncol = ncols_icb_plot
   )
 
-  icb_region_legend <- get_col_pal_legend(
-    region_light_palette(list_names = legend_list_names)
+  icb_legend <- get_col_pal_legend(
+    palette_names = "icb_3",
+    line_widths = rep(1, 3)
+  )
+
+  region_legend <- get_col_pal_legend(
+    palette_names = "regions",
+    line_widths = rep(7, 7),
+    guide_title = "Region"
   )
 
   y_label <- patchwork_y_label()
@@ -242,8 +314,9 @@ plot_by_icb_sorted_by_region_with_background <- function(
     (y_label +
       plot_patchwork +
       plot_layout(widths = c(1, 48))) /
-    icb_region_legend +
-    plot_layout(heights = c(48, 1))
+    icb_legend /
+    region_legend +
+    plot_layout(heights = c(48, 1, 1))
 
   if (save_png) {
     dir.create(here::here("output", "protocol"), showWarnings = FALSE)
@@ -272,7 +345,7 @@ plot_by_icb_sorted_by_region_with_background(
       col_pal = col_pal
     )
   ),
-  save_png = F
+  save_png = T
 )
 
 diff <- Sys.time() - t
