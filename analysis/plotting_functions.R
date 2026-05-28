@@ -26,6 +26,11 @@ df_tirzepatide_practice_strength_month <-
         "15mg / 0.6ml"
       )
     )
+  ) %>%
+  summarise(
+    .by = c(month, region, stp, total_list_size, icb_name, strength),
+    items = sum(items),
+    rateper1000 = items / total_list_size[1]
   )
 
 # Formats ICB names by replacing the last space in the first n characters of a string with a given string (default is 20 and "\n"). This is useful for formatting ICB names for plotting, ensuring that the last word in the first 20 characters is separated by an underscore for better readability in plot titles or labels.
@@ -66,7 +71,8 @@ theme_empty_icb <- theme_bw() +
     axis.ticks.y = element_blank()
   )
 
-get_color_palette <- function(palette_names) {
+# default palette_names = TRUE returns all or pass list names to subset
+get_color_palette <- function(palette_names = TRUE) {
   col_pal <-
     list(
       regions = c(
@@ -84,9 +90,9 @@ get_color_palette <- function(palette_names) {
         "ICB other" = "#b9bbbb"
       ),
       # https://www.flerlagetwins.com/2021/06/datafam-colors-color-palette.html
-      tirz_strengths_5 = c(
-        "2.5mg / 0.5ml and 2.5mg / 0.6ml" = "#99b898",
-        "5mg / 0.5ml and 5mg / 0.6ml" = "#feceab",
+      tirz_strength_5 = c(
+        "2.5mg / 0.5ml or 2.5mg / 0.6ml" = "#99b898",
+        "5mg / 0.5ml or 5mg / 0.6ml" = "#feceab",
         "7.5mg / 0.6ml" = "#ff847c",
         "10mg / 0.6ml" = "#57dfd8",
         "12.5mg / 0.6ml" = "#e84a5f",
@@ -221,8 +227,9 @@ plot_icb_with_background_color <- function(df, icb_name) {
     ylab("")
 }
 
-plot_icb_tirzepatide_strength <- function(df, icb_name, col_pal) {
+plot_icb_tirzepatide_strength <- function(df, icb_name) {
   icbname <- icb_name
+  col_pal <- get_color_palette(palette_names = c("regions", "tirz_strength_5"))
 
   icb_title_name <- icbname %>%
     str_remove_all("NHS | ICB") %>%
@@ -247,8 +254,17 @@ plot_icb_tirzepatide_strength <- function(df, icb_name, col_pal) {
       xintercept = as.POSIXct(date_tirzepatide_ng),
       linetype = "dotted"
     ) +
-    geom_line(aes(x = month, y = rateper1000, color = strength)) +
+    geom_line(
+      aes(
+        x = month,
+        y = rateper1000,
+        color = strength
+      ),
+      linewidth = 0.8,
+      alpha = 0.9
+    ) +
     scale_y_continuous(labels = label_comma()) +
+    scale_color_manual(values = col_pal) +
     guides(color = "none") +
     ggtitle(icb_title_name) +
     xlab("") +
@@ -260,7 +276,10 @@ plot_icb_tirzepatide_strength <- function(df, icb_name, col_pal) {
 plot_by_icb_sorted_by_region_with_background <- function(
   df,
   plot_expr,
-  save_png = FALSE
+  # line_palette_name, # See list in get_color_palette for options (or set new),
+  line_legend, # Create using get_col_pal_legend and set getter
+  save_png = FALSE,
+  png_filename = NULL # Must be set if save_png == TRUE
 ) {
   # ICB plots with one plot per ICB, with all other icb lines plotted in grey for context.
 
@@ -283,11 +302,11 @@ plot_by_icb_sorted_by_region_with_background <- function(
   plots <- purrr::map(
     icb_names,
     function(icb_name) {
-      plot_icb_with_background_color(
-        df = df_tirzepatide_practice_month,
-        icb_name = icb_name
-      )
-      # eval(plot_expr)
+      # plot_icb_with_background_color(
+      #   df = df_tirzepatide_practice_month,
+      #   icb_name = icb_name
+      # )
+      eval(plot_expr)
     }
   )
 
@@ -297,10 +316,10 @@ plot_by_icb_sorted_by_region_with_background <- function(
     ncol = ncols_icb_plot
   )
 
-  icb_legend <- get_col_pal_legend(
-    palette_names = "icb_3",
-    line_widths = rep(1, 3)
-  )
+  # icb_legend <- get_col_pal_legend(
+  #   palette_names = "icb_3",
+  #   line_widths = rep(1, 3)
+  # )
 
   region_legend <- get_col_pal_legend(
     palette_names = "regions",
@@ -314,7 +333,7 @@ plot_by_icb_sorted_by_region_with_background <- function(
     (y_label +
       plot_patchwork +
       plot_layout(widths = c(1, 48))) /
-    icb_legend /
+    line_legend /
     region_legend +
     plot_layout(heights = c(48, 1, 1))
 
@@ -323,7 +342,7 @@ plot_by_icb_sorted_by_region_with_background <- function(
 
     ggsave(
       plot_full_layout,
-      filename = here::here("output", "protocol", "tirzepitide_icb_region.png"),
+      filename = png_filename,
       dpi = 100,
       width = 80,
       height = 50,
@@ -342,14 +361,14 @@ plot_by_icb_sorted_by_region_with_background(
     plot_icb_with_background_color(
       df = df_tirzepatide_practice_month,
       icb_name = icb_name,
-      col_pal = col_pal
     )
   ),
-  save_png = T
+  line_legend = get_col_pal_legend(palette_names = "icb_3"),
+  save_png = T,
+  png_filename = here::here("output", "protocol", "tirzepitide_icb_region.png")
 )
 
 diff <- Sys.time() - t
-
 prev_diff
 diff
 
@@ -363,13 +382,12 @@ plot_by_icb_sorted_by_region_with_background(
     plot_icb_tirzepatide_strength(
       df = df_tirzepatide_practice_strength_month,
       icb_name = icb_name,
-      col_pal = col_pal
     )
   ),
-  save_png = F
+  line_legend = get_col_pal_legend(palette_names = "tirz_strength_5"),
+  save_png = T,
+  here::here("output", "protocol", "tirzepitide_icb_region_strength.png")
 )
-
 diff <- Sys.time() - t
-
 prev_diff
 diff
