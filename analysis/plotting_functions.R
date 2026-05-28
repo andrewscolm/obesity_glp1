@@ -30,7 +30,7 @@ df_tirzepatide_practice_strength_month <-
   summarise(
     .by = c(month, region, stp, total_list_size, icb_name, strength),
     items = sum(items),
-    rateper1000 = items / total_list_size[1]
+    rateper1000 = items / total_list_size[1] * 1000
   )
 
 # Formats ICB names by replacing the last space in the first n characters of a string with a given string (default is 20 and "\n"). This is useful for formatting ICB names for plotting, ensuring that the last word in the first 20 characters is separated by an underscore for better readability in plot titles or labels.
@@ -62,11 +62,20 @@ replace_last_space_firstn <- function(x, n = 24, replacement = "\n") {
   )
 }
 
+grid_dims <- function(n) {
+  stopifnot(length(n) == 1, n >= 1)
+
+  ncol <- ceiling(sqrt(n))
+  nrow <- ceiling(n / ncol)
+
+  c(nrow = nrow, ncol = ncol)
+}
+
 theme_no_axis_labels <- function() {
   list(
     guides(color = "none"),
     theme(
-      text = element_text(size = 15),
+      text = element_text(size = 18),
       axis.text.x = element_blank(),
       axis.ticks.x = element_blank(),
       axis.text.y = element_blank(),
@@ -119,6 +128,7 @@ get_col_pal_legend <- function(
   }
 
   col_pal <- get_color_palette(palette_names)
+
   tibble(
     legend_label = factor(
       names(col_pal),
@@ -142,8 +152,8 @@ get_col_pal_legend <- function(
       legend.position = "bottom",
       legend.direction = "horizontal",
       legend.box = "horizontal",
-      legend.text = element_text(size = 22),
-      legend.title = element_text(size = 22, face = "bold")
+      legend.text = element_text(size = 28),
+      legend.title = element_text(size = 28, face = "bold")
     )
 }
 
@@ -161,6 +171,97 @@ patchwork_y_label <- function(text = "Rate per 1000 registered patients") {
     ) +
     theme_void()
 }
+
+plot_by_icb_sorted_by_region_with_background <- function(
+  df,
+  plot_expr,
+  # line_palette_name, # See list in get_color_palette for options (or set new),
+  plot_region_legend = TRUE,
+  plot_line_legend = TRUE,
+  line_legend = NULL, # Create using get_col_pal_legend and set getter
+  save_png = FALSE,
+  png_filename = NULL # Must be set if save_png == TRUE
+) {
+  # ICB plots with one plot per ICB, with all other icb lines plotted in grey for context.
+
+  icb_names <- df %>%
+    arrange(region, icb_name) %>%
+    select(region, icb_name) %>%
+    distinct() %>%
+    pull(icb_name)
+
+  icb_plot_names <- sapply(icb_names, function(x) {
+    glue("plot_tirzepatide_icb_{x}")
+  })
+
+  n_icbs <- length(unique(df$icb_name))
+  dims <- grid_dims(n_icbs)
+  nrow_plot <- dims["nrow"]
+  ncol_plot <- dims["ncol"]
+
+  plots <- purrr::imap(
+    icb_names,
+    function(icb_name, i) {
+      # plot_icb_with_background_color(
+      #   df = df_tirzepatide_practice_month,
+      #   icb_name = icb_name,
+      #   add_x_axis_text = i > n_icbs - ncol_plot
+      #   add_y_axis_text = i %in% seq(1, n_icbs, ncol_plot)
+      # )
+      add_x_axis_text = i > n_icbs - ncol_plot
+      add_y_axis_text = i %in% seq(1, n_icbs, ncol_plot)
+      eval(plot_expr)
+    }
+  )
+
+  plot_patchwork <- patchwork::wrap_plots(
+    plotlist = plots,
+    nrow = nrow_plot,
+    ncol = ncol_plot
+  )
+
+  region_legend <- get_col_pal_legend(
+    palette_names = "regions",
+    line_widths = rep(7, 7),
+    guide_title = "Region"
+  )
+
+  y_label <- patchwork_y_label()
+
+  plot_full_layout <-
+    (y_label +
+      plot_patchwork +
+      plot_layout(widths = c(1, 48)))
+
+  if (plot_line_legend & plot_region_legend) {
+    plot_full_layout <- plot_full_layout /
+      line_legend /
+      region_legend +
+      plot_layout(heights = c(48, 1, 1))
+  }
+
+  if (plot_line_legend & !plot_region_legend) {
+    plot_full_layout <- plot_full_layout /
+      line_legend +
+      plot_layout(heights = c(48, 1))
+  }
+
+  if (save_png) {
+    dir.create(here::here("output", "protocol"), showWarnings = FALSE)
+
+    ggsave(
+      plot_full_layout,
+      filename = png_filename,
+      dpi = 100,
+      width = 80,
+      height = 50,
+      units = "cm"
+    )
+  }
+
+  plot_full_layout
+}
+
 
 plot_icb_with_background_color <- function(
   df,
@@ -239,7 +340,7 @@ plot_icb_with_background_color <- function(
   if (eval(x_axis_text)) {
     plot <- plot +
       theme(
-        axis.text.x = element_text(angle = 90, size = 20),
+        axis.text.x = element_text(angle = 90, size = 22),
         axis.ticks.x = element_line()
       )
   }
@@ -248,7 +349,7 @@ plot_icb_with_background_color <- function(
   if (eval(y_axis_text)) {
     plot <- plot +
       theme(
-        axis.text.y = element_text(size = 20),
+        axis.text.y = element_text(size = 22),
         axis.ticks.y = element_line()
       )
   }
@@ -309,7 +410,7 @@ plot_icb_tirzepatide_strength <- function(
   if (eval(x_axis_text)) {
     plot <- plot +
       theme(
-        axis.text.x = element_text(angle = 90, size = 20),
+        axis.text.x = element_text(angle = 90, size = 22),
         axis.ticks.x = element_line()
       )
   }
@@ -318,7 +419,7 @@ plot_icb_tirzepatide_strength <- function(
   if (eval(y_axis_text)) {
     plot <- plot +
       theme(
-        axis.text.y = element_text(size = 20),
+        axis.text.y = element_text(size = 22),
         axis.ticks.y = element_line()
       )
   }
@@ -326,89 +427,8 @@ plot_icb_tirzepatide_strength <- function(
   return(plot)
 }
 
-plot_by_icb_sorted_by_region_with_background <- function(
-  df,
-  plot_expr,
-  # line_palette_name, # See list in get_color_palette for options (or set new),
-  line_legend, # Create using get_col_pal_legend and set getter
-  save_png = FALSE,
-  png_filename = NULL # Must be set if save_png == TRUE
-) {
-  # ICB plots with one plot per ICB, with all other icb lines plotted in grey for context.
 
-  # 42 ICBs, so 6 rows and 7 columns for patchwork
-  n_icbs <- 42
-  nrows_icb_plot = 6
-  ncols_icb_plot = 7
-  # ICB names arranged alphabetically by region
-
-  icb_names <- df %>%
-    arrange(region, icb_name) %>%
-    select(region, icb_name) %>%
-    distinct() %>%
-    pull(icb_name)
-
-  icb_plot_names <- sapply(icb_names, function(x) {
-    glue("plot_tirzepatide_icb_{x}")
-  })
-
-  plots <- purrr::imap(
-    icb_names,
-    function(icb_name, i) {
-      # plot_icb_with_background_color(
-      #   df = df_tirzepatide_practice_month,
-      #   icb_name = icb_name,
-      #   x_axis_text = i > n_icbs - ncols_icb_plot,
-      #   y_axis_text = i %in% seq(1, n_icbs, ncols_icb_plot)E
-      # )
-      add_x_axis_text = i > n_icbs - ncols_icb_plot
-      add_y_axis_text = i %in% seq(1, n_icbs, ncols_icb_plot)
-      eval(plot_expr)
-    }
-  )
-
-  plot_patchwork <- patchwork::wrap_plots(
-    plotlist = plots,
-    nrow = nrows_icb_plot,
-    ncol = ncols_icb_plot
-  )
-
-  # icb_legend <- get_col_pal_legend(
-  #   palette_names = "icb_3",
-  #   line_widths = rep(1, 3)
-  # )
-
-  region_legend <- get_col_pal_legend(
-    palette_names = "regions",
-    line_widths = rep(7, 7),
-    guide_title = "Region"
-  )
-
-  y_label <- patchwork_y_label()
-
-  plot_full_layout <-
-    (y_label +
-      plot_patchwork +
-      plot_layout(widths = c(1, 48))) /
-    line_legend /
-    region_legend +
-    plot_layout(heights = c(48, 1, 1))
-
-  if (save_png) {
-    dir.create(here::here("output", "protocol"), showWarnings = FALSE)
-
-    ggsave(
-      plot_full_layout,
-      filename = png_filename,
-      dpi = 100,
-      width = 80,
-      height = 50,
-      units = "cm"
-    )
-  }
-
-  plot_full_layout
-}
+# # ==============
 
 prev_diff <- diff
 t <- Sys.time()
@@ -416,7 +436,7 @@ plot_by_icb_sorted_by_region_with_background(
   df = df_tirzepatide_practice_month,
   plot_expr = expr(
     plot_icb_with_background_color(
-      df = df_tirzepatide_practice_month,
+      df = df,
       icb_name = icb_name,
       x_axis_text = add_x_axis_text,
       y_axis_text = add_y_axis_text
@@ -431,7 +451,6 @@ diff <- Sys.time() - t
 prev_diff
 diff
 
-
 # ============
 prev_diff <- diff
 t <- Sys.time()
@@ -439,7 +458,7 @@ plot_by_icb_sorted_by_region_with_background(
   df = df_tirzepatide_practice_month,
   plot_expr = expr(
     plot_icb_tirzepatide_strength(
-      df = df_tirzepatide_practice_strength_month,
+      df = df,
       icb_name = icb_name,
       x_axis_text = add_x_axis_text,
       y_axis_text = add_y_axis_text
@@ -447,8 +466,48 @@ plot_by_icb_sorted_by_region_with_background(
   ),
   line_legend = get_col_pal_legend(palette_names = "tirz_strength_5"),
   save_png = T,
-  here::here("output", "protocol", "tirzepitide_icb_region_strength.png")
+  png_filename = here::here(
+    "output",
+    "protocol",
+    "tirzepitide_icb_region_strength.png"
+  )
 )
 diff <- Sys.time() - t
 prev_diff
 diff
+
+# =====================
+
+df_tirzepatide_month <- df_tirzepatide_practice_month %>%
+  summarise(
+    .by = c(month),
+    icb_name = "",
+    region = "",
+    items = sum(items),
+    total_list_size = sum(total_list_size),
+    rateper1000 = items / total_list_size * 1000
+    # check_rows = n(),
+    # check_icb_names = length(unique(icb_names)),
+    # check = check_rows == check_icb_names
+  )
+
+# # Plot all England
+# plot_by_icb_sorted_by_region_with_background(
+#   df = df_tirzepatide_month,
+#   plot_expr = expr(
+#     plot_icb_with_background_color(
+#       df = df,
+#       icb_name = icb_name,
+#       x_axis_text = add_x_axis_text,
+#       y_axis_text = add_y_axis_text
+#     )
+#   ),
+#   plot_line_legend = F,
+#   plot_region_legend = F,
+#   save_png = T,
+#   png_filename = png_filename = here::here(
+#     "output",
+#     "protocol",
+#     "tirzepitide_icb_region_total.png"
+#   )
+# )
