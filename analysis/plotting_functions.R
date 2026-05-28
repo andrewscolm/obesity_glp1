@@ -62,16 +62,21 @@ replace_last_space_firstn <- function(x, n = 24, replacement = "\n") {
   )
 }
 
-theme_empty_icb <- theme_bw() +
-  theme(
-    text = element_text(size = 15),
-    axis.text.x = element_blank(),
-    axis.ticks.x = element_blank(),
-    axis.text.y = element_blank(),
-    axis.ticks.y = element_blank()
+theme_no_axis_labels <- function() {
+  list(
+    guides(color = "none"),
+    theme(
+      text = element_text(size = 15),
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank()
+    ),
+    labs(x = NULL, y = NULL)
   )
+}
 
-# default palette_names = TRUE returns all or pass list names to subset
+# default palette_names = TRUE returns all or pass list names to subset (eg, get_color_palette("regions"))
 get_color_palette <- function(palette_names = TRUE) {
   col_pal <-
     list(
@@ -91,10 +96,10 @@ get_color_palette <- function(palette_names = TRUE) {
       ),
       # https://www.flerlagetwins.com/2021/06/datafam-colors-color-palette.html
       tirz_strength_5 = c(
-        "2.5mg / 0.5ml or 2.5mg / 0.6ml" = "#99b898",
-        "5mg / 0.5ml or 5mg / 0.6ml" = "#feceab",
+        "2.5mg / 0.5ml or 2.5mg / 0.6ml" = "#8dc08c",
+        "5mg / 0.5ml or 5mg / 0.6ml" = "#5bbeb9",
         "7.5mg / 0.6ml" = "#ff847c",
-        "10mg / 0.6ml" = "#57dfd8",
+        "10mg / 0.6ml" = "#fbdf42",
         "12.5mg / 0.6ml" = "#e84a5f",
         "15mg / 0.6ml" = "#2f9599"
       )
@@ -157,11 +162,15 @@ patchwork_y_label <- function(text = "Rate per 1000 registered patients") {
     theme_void()
 }
 
-plot_icb_with_background_color <- function(df, icb_name) {
+plot_icb_with_background_color <- function(
+  df,
+  icb_name,
+  x_axis_text = TRUE, # can take an expression
+  y_axis_text = TRUE # can take an expression
+) {
   icbname <- icb_name
-  #1. Create main plot
-  #browser()
-  col_pal <- get_color_palette(c("icb_3", "regions"))
+
+  col_pal <- get_color_palette()
 
   icb_title_name <- icbname %>%
     str_remove_all("NHS | ICB") %>%
@@ -192,7 +201,8 @@ plot_icb_with_background_color <- function(df, icb_name) {
       )
     )
 
-  ggplot(
+  # 1. Create plot with no axis text or labels
+  plot <- ggplot(
     data = df,
     aes(x = month, y = rateper1000, group = icb_name)
   ) +
@@ -200,12 +210,12 @@ plot_icb_with_background_color <- function(df, icb_name) {
     geom_line(
       data = filter(df, color_group == "ICB other"),
       aes(color = color_group),
-      alpha = 0.6
+      alpha = 0.8
     ) +
     geom_line(
       data = filter(df, color_group %in% c("ICB in region")),
       aes(color = color_group),
-      alpha = 0.8
+      alpha = 1
     ) +
     geom_line(
       data = filter(df, color_group %in% c("Current ICB")),
@@ -221,15 +231,39 @@ plot_icb_with_background_color <- function(df, icb_name) {
       limits = c(0, max(df$rateper1000, na.rm = T))
     ) +
     ggtitle(icb_title_name) +
-    theme_empty_icb +
-    theme(plot.background = element_rect(fill = background_color)) +
-    xlab("") +
-    ylab("")
+    theme_bw() +
+    theme_no_axis_labels() +
+    theme(plot.background = element_rect(fill = background_color))
+
+  # 2. Add x-axis text if set (can take an expression)
+  if (eval(x_axis_text)) {
+    plot <- plot +
+      theme(
+        axis.text.x = element_text(angle = 90, size = 20),
+        axis.ticks.x = element_line()
+      )
+  }
+
+  # 3. Add y-axis text if set (can take an expression)
+  if (eval(y_axis_text)) {
+    plot <- plot +
+      theme(
+        axis.text.y = element_text(size = 20),
+        axis.ticks.y = element_line()
+      )
+  }
+
+  return(plot)
 }
 
-plot_icb_tirzepatide_strength <- function(df, icb_name) {
+plot_icb_tirzepatide_strength <- function(
+  df,
+  icb_name,
+  x_axis_text = TRUE,
+  y_axis_text = TRUE
+) {
   icbname <- icb_name
-  col_pal <- get_color_palette(palette_names = c("regions", "tirz_strength_5"))
+  col_pal <- get_color_palette()
 
   icb_title_name <- icbname %>%
     str_remove_all("NHS | ICB") %>%
@@ -243,7 +277,8 @@ plot_icb_tirzepatide_strength <- function(df, icb_name) {
 
   background_color <- col_pal[current_region]
 
-  df_tirzepatide_practice_strength_month %>%
+  # 1. Create plot with no x and y axis text
+  plot <- df_tirzepatide_practice_strength_month %>%
     filter(icb_name == icbname) %>%
     ggplot() +
     geom_vline(
@@ -260,17 +295,35 @@ plot_icb_tirzepatide_strength <- function(df, icb_name) {
         y = rateper1000,
         color = strength
       ),
-      linewidth = 0.8,
+      linewidth = 1,
       alpha = 0.9
     ) +
     scale_y_continuous(labels = label_comma()) +
     scale_color_manual(values = col_pal) +
-    guides(color = "none") +
     ggtitle(icb_title_name) +
-    xlab("") +
-    ylab("") +
-    theme_empty_icb +
+    theme_bw() +
+    theme_no_axis_labels() +
     theme(plot.background = element_rect(fill = background_color))
+
+  # 2. Add x-axis text if set (can take an expression)
+  if (eval(x_axis_text)) {
+    plot <- plot +
+      theme(
+        axis.text.x = element_text(angle = 90, size = 20),
+        axis.ticks.x = element_line()
+      )
+  }
+
+  # 3. Add y-axis text if set (can take an expression)
+  if (eval(y_axis_text)) {
+    plot <- plot +
+      theme(
+        axis.text.y = element_text(size = 20),
+        axis.ticks.y = element_line()
+      )
+  }
+
+  return(plot)
 }
 
 plot_by_icb_sorted_by_region_with_background <- function(
@@ -299,13 +352,17 @@ plot_by_icb_sorted_by_region_with_background <- function(
     glue("plot_tirzepatide_icb_{x}")
   })
 
-  plots <- purrr::map(
+  plots <- purrr::imap(
     icb_names,
-    function(icb_name) {
+    function(icb_name, i) {
       # plot_icb_with_background_color(
       #   df = df_tirzepatide_practice_month,
-      #   icb_name = icb_name
+      #   icb_name = icb_name,
+      #   x_axis_text = i > n_icbs - ncols_icb_plot,
+      #   y_axis_text = i %in% seq(1, n_icbs, ncols_icb_plot)E
       # )
+      add_x_axis_text = i > n_icbs - ncols_icb_plot
+      add_y_axis_text = i %in% seq(1, n_icbs, ncols_icb_plot)
       eval(plot_expr)
     }
   )
@@ -361,6 +418,8 @@ plot_by_icb_sorted_by_region_with_background(
     plot_icb_with_background_color(
       df = df_tirzepatide_practice_month,
       icb_name = icb_name,
+      x_axis_text = add_x_axis_text,
+      y_axis_text = add_y_axis_text
     )
   ),
   line_legend = get_col_pal_legend(palette_names = "icb_3"),
@@ -382,6 +441,8 @@ plot_by_icb_sorted_by_region_with_background(
     plot_icb_tirzepatide_strength(
       df = df_tirzepatide_practice_strength_month,
       icb_name = icb_name,
+      x_axis_text = add_x_axis_text,
+      y_axis_text = add_y_axis_text
     )
   ),
   line_legend = get_col_pal_legend(palette_names = "tirz_strength_5"),
