@@ -101,15 +101,15 @@ get_color_palette <- function(palette_names = TRUE) {
       icb_3 = c(
         "Current ICB" = "#e84a5f",
         "ICB in region" = "#2f9599",
-        "ICB other" = "#b9bbbb"
+        "ICB other" = "#c3cbcb"
       ),
       # https://www.flerlagetwins.com/2021/06/datafam-colors-color-palette.html
       tirz_strength_5 = c(
-        "2.5mg / 0.5ml or 2.5mg / 0.6ml" = "#8dc08c",
-        "5mg / 0.5ml or 5mg / 0.6ml" = "#5bbeb9",
-        "7.5mg / 0.6ml" = "#ff847c",
-        "10mg / 0.6ml" = "#fbdf42",
-        "12.5mg / 0.6ml" = "#e84a5f",
+        "2.5mg / 0.5ml or 2.5mg / 0.6ml" = "#e84a5f",
+        "5mg / 0.5ml or 5mg / 0.6ml" = "#74eae4",
+        "7.5mg / 0.6ml" = "#ffa51d",
+        "10mg / 0.6ml" = "#5bd159",
+        "12.5mg / 0.6ml" = "#f7d82d",
         "15mg / 0.6ml" = "#2f9599"
       )
     )
@@ -311,7 +311,7 @@ plot_icb_with_background_color <- function(
     geom_line(
       data = filter(df, color_group == "ICB other"),
       aes(color = color_group),
-      alpha = 0.8
+      alpha = 0.7
     ) +
     geom_line(
       data = filter(df, color_group %in% c("ICB in region")),
@@ -379,7 +379,7 @@ plot_icb_tirzepatide_strength <- function(
   background_color <- col_pal[current_region]
 
   # 1. Create plot with no x and y axis text
-  plot <- df_tirzepatide_practice_strength_month %>%
+  plot <- df %>%
     filter(icb_name == icbname) %>%
     ggplot() +
     geom_vline(
@@ -399,7 +399,10 @@ plot_icb_tirzepatide_strength <- function(
       linewidth = 1,
       alpha = 0.9
     ) +
-    scale_y_continuous(labels = label_comma()) +
+    scale_y_continuous(
+      labels = label_comma(),
+      limits = c(0, max(df$rateper1000, na.rm = T))
+    ) +
     scale_color_manual(values = col_pal) +
     ggtitle(icb_title_name) +
     theme_bw() +
@@ -455,7 +458,7 @@ diff
 prev_diff <- diff
 t <- Sys.time()
 plot_by_icb_sorted_by_region_with_background(
-  df = df_tirzepatide_practice_month,
+  df = df_tirzepatide_practice_strength_month,
   plot_expr = expr(
     plot_icb_tirzepatide_strength(
       df = df,
@@ -478,6 +481,7 @@ diff
 
 # =====================
 
+# need to standardize y axes
 df_tirzepatide_month <- df_tirzepatide_practice_month %>%
   summarise(
     .by = c(month),
@@ -491,23 +495,23 @@ df_tirzepatide_month <- df_tirzepatide_practice_month %>%
     # check = check_rows == check_icb_names
   )
 
-# # Plot all England
-# plot_by_icb_sorted_by_region_with_background(
-#   df = df_tirzepatide_month,
-#   plot_expr = expr(
-#     plot_icb_with_background_color(
-#       df = df,
-#       icb_name = icb_name,
-#       x_axis_text = add_x_axis_text,
-#       y_axis_text = add_y_axis_text
-#     )
-#   ),
-#   plot_line_legend = F,
-#   plot_region_legend = F,
-#   save_png = T,
-#   png_filename = png_filename = here::here(
-#     "output",
-#     "protocol",
-#     "tirzepitide_icb_region_total.png"
-#   )
-# )
+# Plot all England
+plot_by_icb_sorted_by_region_with_background(
+  df = df_tirzepatide_month,
+  plot_expr = expr(
+    plot_icb_with_background_color(
+      df = df,
+      icb_name = icb_name,
+      x_axis_text = add_x_axis_text,
+      y_axis_text = add_y_axis_text
+    )
+  ),
+  plot_line_legend = F,
+  plot_region_legend = F,
+  save_png = T,
+  png_filename = here::here(
+    "output",
+    "protocol",
+    "tirzepitide_icb_region_total.png"
+  )
+)
