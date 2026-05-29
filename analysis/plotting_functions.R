@@ -1,5 +1,8 @@
 library(tidyverse)
 library(patchwork)
+library(glue)
+library(scales)
+
 
 df_tirzepatide_practice_month <-
   readRDS(here::here("data", "df_tirzepatide_practice_month.rds"))
@@ -32,6 +35,10 @@ df_tirzepatide_practice_strength_month <-
     items = sum(items),
     rateper1000 = items / total_list_size[1] * 1000
   )
+
+date_tirzepatide_ng <- as.Date("2024-12-23")
+date_tirzepatide_diab <- as.Date("2023-10-25")
+
 
 # Formats ICB names by replacing the last space in the first n characters of a string with a given string (default is 20 and "\n"). This is useful for formatting ICB names for plotting, ensuring that the last word in the first 20 characters is separated by an underscore for better readability in plot titles or labels.
 replace_last_space_firstn <- function(x, n = 24, replacement = "\n") {
@@ -99,7 +106,7 @@ get_color_palette <- function(palette_names = TRUE) {
         "South West" = "#ffffb3"
       ),
       icb_3 = c(
-        "Current ICB" = "#e84a5f",
+        "Title ICB" = "#e84a5f",
         "ICB in region" = "#2f9599",
         "ICB other" = "#c3cbcb"
       ),
@@ -296,7 +303,7 @@ plot_icb_with_background_color <- function(
         levels = c(1, 2, 3)
       ),
       color_group = case_when(
-        icb_name == icbname ~ "Current ICB",
+        icb_name == icbname ~ "Title ICB",
         region == current_region ~ "ICB in region",
         TRUE ~ "ICB other"
       )
@@ -319,7 +326,7 @@ plot_icb_with_background_color <- function(
       alpha = 1
     ) +
     geom_line(
-      data = filter(df, color_group %in% c("Current ICB")),
+      data = filter(df, color_group %in% c("Title ICB")),
       aes(color = color_group),
       linewidth = 1.2
     ) +
@@ -481,7 +488,7 @@ diff
 
 # =====================
 
-# need to standardize y axes
+# Plot by strength
 df_tirzepatide_month <- df_tirzepatide_practice_month %>%
   summarise(
     .by = c(month),
