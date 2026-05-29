@@ -113,11 +113,18 @@ get_color_palette <- function(palette_names = TRUE) {
       # https://www.flerlagetwins.com/2021/06/datafam-colors-color-palette.html
       tirz_strength_5 = c(
         "2.5mg / 0.5ml or 2.5mg / 0.6ml" = "#e84a5f",
-        "5mg / 0.5ml or 5mg / 0.6ml" = "#74eae4",
+        "5mg / 0.5ml or 5mg / 0.6ml" = "#58cdc7",
         "7.5mg / 0.6ml" = "#ffa51d",
         "10mg / 0.6ml" = "#5bd159",
         "12.5mg / 0.6ml" = "#f7d82d",
         "15mg / 0.6ml" = "#2f9599"
+      ),
+      icb_summary = c(
+        Mean = "#e84a5f",
+        Median = "#2f9599",
+        "IQR Low" = "#58cdc7",
+        "IQR High" = "#58cdc7",
+        ICB = "#c3cbcb"
       )
     )
 
@@ -314,7 +321,7 @@ plot_icb_with_background_color <- function(
     data = df,
     aes(x = month, y = rateper1000, group = icb_name)
   ) +
-    # Plot groups in separate layers to allow different aesthetics for each group and to layer with focus on top, followed by same region.
+    # Plot groups in separate layers to ensure layer with focus on top, followed by same region, then other icbs
     geom_line(
       data = filter(df, color_group == "ICB other"),
       aes(color = color_group),
@@ -522,3 +529,38 @@ plot_by_icb_sorted_by_region_with_background(
     "tirzepitide_icb_region_total.png"
   )
 )
+
+# #================
+# All england plot by ICB
+df_tirzepatide_icb_month_summary <- df_tirzepatide_icb_month %>%
+  mutate(type = "ICB") %>%
+  bind_rows(
+    df_tirzepatide_icb_month %>%
+      summarise(
+        .by = month,
+        icb_name = "",
+        region = "",
+        median = median(rateper1000, na.rm = TRUE),
+        iqr_low = quantile(rateper1000, 0.25, na.rm = TRUE),
+        iqr_high = quantile(rateper1000, 0.75, na.rm = TRUE)
+      ) %>%
+      pivot_longer(
+        cols = c(median, iqr_low, iqr_high),
+        names_to = "type",
+        values_to = "rateper1000"
+      ) %>%
+      mutate(
+        type = recode(
+          type,
+          median = "Median",
+          iqr_low = "IQR lower",
+          iqr_high = "IQR upper"
+        )
+      )
+  )
+
+#================
+# All england deciles or mean,med,quartiles plot
+
+#================
+# New density plot
