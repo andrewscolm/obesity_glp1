@@ -4,11 +4,11 @@ library(glue)
 library(scales)
 
 
-df_tirzepatide_practice_month <-
-  readRDS(here::here("data", "df_tirzepatide_practice_month.rds"))
+df_tirzepatide_icb_month <-
+  readRDS(here::here("data", "df_tirzepatide_icb_month.rds"))
 
-df_tirzepatide_practice_strength_month <-
-  readRDS(here::here("data", "df_tirzepatide_practice_strength_month.rds")) %>%
+df_tirzepatide_icb_strength_month <-
+  readRDS(here::here("data", "df_tirzepatide_icb_strength_month.rds")) %>%
   arrange(strength) %>%
   rename(original_strength = strength) %>%
   mutate(
@@ -210,7 +210,7 @@ plot_by_icb_sorted_by_region_with_background <- function(
     icb_names,
     function(icb_name, i) {
       # plot_icb_with_background_color(
-      #   df = df_tirzepatide_practice_month,
+      #   df = df_tirzepatide_icb_month,
       #   icb_name = icb_name,
       #   add_x_axis_text = i > n_icbs - ncol_plot
       #   add_y_axis_text = i %in% seq(1, n_icbs, ncol_plot)
@@ -443,7 +443,7 @@ plot_icb_tirzepatide_strength <- function(
 prev_diff <- diff
 t <- Sys.time()
 plot_by_icb_sorted_by_region_with_background(
-  df = df_tirzepatide_practice_month,
+  df = df_tirzepatide_icb_month,
   plot_expr = expr(
     plot_icb_with_background_color(
       df = df,
@@ -465,7 +465,7 @@ diff
 prev_diff <- diff
 t <- Sys.time()
 plot_by_icb_sorted_by_region_with_background(
-  df = df_tirzepatide_practice_strength_month,
+  df = df_tirzepatide_icb_strength_month,
   plot_expr = expr(
     plot_icb_tirzepatide_strength(
       df = df,
@@ -489,7 +489,7 @@ diff
 # =====================
 
 # Plot by strength
-df_tirzepatide_month <- df_tirzepatide_practice_month %>%
+df_tirzepatide_month <- df_tirzepatide_icb_month %>%
   summarise(
     .by = c(month),
     icb_name = "",
