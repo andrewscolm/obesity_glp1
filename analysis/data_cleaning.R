@@ -214,7 +214,7 @@ practice_tirzepatide <- tirzepatide_clean %>%
 
 nrow(practice_tirzepatide)
 nrow(tirzepatide_clean)
-tapply(practice_tirzepatide$rate, practice_tirzepatide$icb_name, summary)
+tapply(practice_tirzepatide$rateper1000, practice_tirzepatide$icb_name, summary)
 
 
 icb_tirzepatide <- practice_tirzepatide %>%
@@ -223,10 +223,10 @@ icb_tirzepatide <- practice_tirzepatide %>%
     .by = c(year, month, icb_name, stp_id, regional_team_id),
     list_size = sum(practice_list_size),
     items = sum(items),
-    rate = items / list_size * 1000
+    rateper1000 = items / list_size * 1000
   )
 
-tapply(icb_tirzepatide$rate, icb_tirzepatide$icb_name, summary)
+tapply(icb_tirzepatide$rateper1000, icb_tirzepatide$icb_name, summary)
 
 
 ggplot(
@@ -235,7 +235,7 @@ ggplot(
   geom_line(
     aes(
       x = month,
-      y = rate,
+      y = rateper1000,
       group = icb_name,
       color = regional_team_id,
     ),
@@ -251,7 +251,7 @@ ggsave(
     "test_tirzepatide.png"
   )
 )
-tapply(icb_tirzepatide$rate, icb_tirzepatide$month, summary)
+tapply(icb_tirzepatide$rateper1000, icb_tirzepatide$month, summary)
 
 # exclude_size_low <-
 #   quantile(tirzepatide_clean$total_list_size, 0.05, na.rm = T)
