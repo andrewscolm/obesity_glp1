@@ -25,14 +25,13 @@ library(fpp2) # Forecasting: Principles and Practice" (2nd Edition)
 library(lubridate) # interval
 library(patchwork)
 library(tibble)
+
+source(here::here("analysis", "plotting_functions.R"))
 ```
 
 ```{r}
 #| label: load-raw-data-minor-cleaning
 #| include: false
-date_tirzepatide_ng <- as.Date("2024-12-23")
-date_tirzepatide_diab <- as.Date("2023-10-25")
-
 # ICB names arranged alphabetically by region
 region_sorted_icb_names <- df_tirzepatide_practice_month %>%
   arrange(region, icb_name) %>%
@@ -44,13 +43,13 @@ df_tirzepatide_practice_strength_month <- readRDS(
   here::here("data", "df_tirzepatide_practice_strength_month.rds")
 )
 
-df_tirzepatide_practice_month <- readRDS(
-  here::here("data", "df_tirzepatide_practice_month.rds")
-)
+# df_tirzepatide_practice_month <- readRDS(
+#   here::here("data", "df_tirzepatide_practice_month.rds")
+# )
 
-df_orlistat_icb_month <- readRDS(
-  here::here("data", "df_orlistat_icb_month.rds")
-)
+# df_orlistat_icb_month <- readRDS(
+#   here::here("data", "df_orlistat_icb_month.rds")
+# )
 
 # df_normalised_prescribing <- read_csv(here::here(
 #   "data",
@@ -75,28 +74,28 @@ df_orlistat_icb_month <- readRDS(
 #   select("code", "name", "stp_id", "regional_team_id", "org_type")
 
 ### region info
-df_regions <- read_csv(here::here(
-  "data",
-  "NHS_England_Names_and_Codes_in_England.csv"
-)) %>%
-  rename(regional_team = NHSER24CDH, region = NHSER24NM) %>%
-  dplyr::select(regional_team, region) %>%
-  mutate(
-    col_fill = c(
-      "#8dabd371",
-      "#e7b6e1",
-      "#ffffb3",
-      "#eeb35a38",
-      "#8aebe693",
-      "#b6e59b8c",
-      "#f344444d"
-    )
-  )
+# df_regions <- read_csv(here::here(
+#   "data",
+#   "NHS_England_Names_and_Codes_in_England.csv"
+# )) %>%
+#   rename(regional_team = NHSER24CDH, region = NHSER24NM) %>%
+#   dplyr::select(regional_team, region) %>%
+#   mutate(
+#     col_fill = c(
+#       "#8dabd371",
+#       "#e7b6e1",
+#       "#ffffb3",
+#       "#eeb35a38",
+#       "#8aebe693",
+#       "#b6e59b8c",
+#       "#f344444d"
+#     )
+#   )
 
-region_palette_light <- deframe(df_regions[, c(2, 3)])
+# region_palette_light <- deframe(df_regions[, c(2, 3)])
 
-regions <- df_regions %>%
-  pull(region)
+# regions <- df_regions %>%
+#   pull(region)
 
 # ### QOF Obesity prevalence
 # df_qof_ob <- read_csv(here::here("data", "qof", "prevalence.csv"))
@@ -122,12 +121,6 @@ regions <- df_regions %>%
 #   drop_na(stp_id)
 ```
 
-```{r}
-#| label: data-cleaning
-#| include: false
-
-
-```
 
 
 # OpenPrescribing Tirzepatide and Obesity Protocol
@@ -252,6 +245,7 @@ Figure 1A: Tirzepatide dispensing per 1000 registered patients - England
 #| label: fig-1-a-dispensing-per-1000-registered-patients
 #| fig-cap: "Tirzepatide dispensing per 1000 registered patients - England"
 #| warning: false
+ggplot()
 ```
 
 
@@ -271,6 +265,7 @@ Figure 2: Tirzepatide dispensing per 1000 list size ICB
 #| label: fig-2-dispensing-per-1000-list-size
 #| fig-cap: "Tirzepatide dispensing per 1000 list size ICB"
 #| warning: false
+ggplot()
 ```
 
 Figure 3. Tirzepatide dispensing per 1000 registered patients - England by aggregated strength

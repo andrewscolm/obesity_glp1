@@ -27,7 +27,24 @@ df_tirzepatide_practice <- read_csv(here::here(
   "data",
   "tirzepatide_practice.csv.gz"
 )) %>%
-  filter(month >= as.Date("2023-01-01"))
+  filter(month >= as.Date("2023-01-01")) %>%
+  mutate(
+    strength = gsub("[^0-9/.]", "", bnf_name),
+    strength = gsub("2.4", "", strength),
+    strength = gsub("/", "mg / ", strength),
+    strength = glue("{strength}ml")
+  ) %>%
+  filter(
+    strength %in%
+      c(
+        "5mg / 0.6ml",
+        "7.5mg / 0.6ml",
+        "10mg / 0.6ml",
+        "2.5mg / 0.6ml",
+        "15mg / 0.6ml",
+        "12.5mg / 0.6ml"
+      )
+  )
 
 
 ### practice statistics data
@@ -103,10 +120,27 @@ icb_stats_clean <-
   left_join(df_qof_icbs, by = join_by(stp_id == icb_ods_code)) %>%
   filter(month >= as.Date("2023-01-01"))
 
-nrow(icb_stats_clean) #1512
-table(icb_stats_clean$stp_id, icb_stats_clean$month, useNA = "a")
+nrow(icb_stats_clean) # 1512
+# table(icb_stats_clean$stp_id, icb_stats_clean$month, useNA = "a")
 names(icb_stats_clean)
 
+### practice stats clean ----
+practice_stats_clean <-
+  df_practice_stats %>%
+  rename(practice_name = name) %>%
+  left_join(
+    df_hscic_ccgs,
+    # by = join_by(pct_id == code) # there are some inconsistencies
+    by = join_by(sicbl == code)
+  ) %>%
+  rename(nhs_name = name) %>%
+  left_join(df_qof_icbs, by = c("stp_id" = "icb_ods_code")) %>%
+  mutate(
+    icb_name = gsub("Integrated Care Board", "ICB", icb_name),
+    icb_name = gsub("ICB", "", icb_name),
+    icb_name = gsub("NHS ", "", icb_name)
+  )
+nrow(practice_stats_clean)
 
 ## Clean Orlistat ----
 
@@ -121,55 +155,148 @@ orlistat_clean <- df_orlistat_practice %>%
     by = c("stp" = "stp_id", "month")
   ) %>%
   summarise(
+    .by = c(icb_name, stp, year, month, strength, total_list_size),
     stp = last(stp),
     regional_team = last(regional_team),
     items = sum(items),
     list_size = last(total_list_size),
-    rateper1000 = (items) / list_size * 1000,
-    .by = c(stp, year, month, strength, total_list_size)
+    rateper1000 = (items) / list_size * 1000
   )
 
+nrow(orlistat_clean) # 2953
+nrow(df_orlistat_practice) # 213092
 names(orlistat_clean)
 tapply(orlistat_clean$rateper1000, orlistat_clean$strength, summary)
 
-table(orlistat_clean$stp, orlistat_clean$year, useNA = "a")
+# table(orlistat_clean$stp, orlistat_clean$year, useNA = "a")
 
 # ## Clean Tirzepatide ----
 
-# tirzepatide_clean <- df_tirzepatide_practice %>%
-#   mutate(
-#     strength = gsub("[^0-9/.]", "", bnf_name),
-#     strength = gsub("2.4", "", strength),
-#     strength = gsub("/", "mg / ", strength),
-#     strength = glue("{strength}ml")
-#   ) %>%
+tirzepatide_clean <- df_tirzepatide_practice %>%
+  # Q: Why does orlistat have practice but not df_tirzepatide_practice, can we fix?
+  # left_join(
+  #   df_normalised_prescribing,
+  #   by = c("month", "practice")
+  # ) %>%
+  left_join(
+    practice_stats_clean,
+    by = c("practice", "month")
+  ) %>%
+  mutate(
+    rateper1000 = items / total_list_size * 1000
+  ) %>%
+  filter(
+    !is.na(total_list_size) #&
+    # total_list_size < 20
+    #   total_list_size >= 20000) &
+    # items > 1
+  ) %>%
+  mutate(year = lubridate::year(month))
+
+
+practice_tirzepatide <- tirzepatide_clean %>%
+  # summarize - sum of strengths by practices first; USE LAST LIST SIZE
+  summarize(
+    .by = c(
+      year,
+      practice_name,
+      practice,
+      month,
+      icb_name,
+      stp_id,
+      regional_team_id
+    ),
+    practice_list_size = last(total_list_size),
+    items = sum(items),
+    rateper1000 = items / practice_list_size * 1000
+  ) # %>%
+# filter(stp_id == "QOX")
+
+nrow(practice_tirzepatide)
+nrow(tirzepatide_clean)
+tapply(practice_tirzepatide$rate, practice_tirzepatide$icb_name, summary)
+
+
+icb_tirzepatide <- practice_tirzepatide %>%
+  # summarize - sum of practices by ibs first; USE SUM OF LIST SIZE
+  summarize(
+    .by = c(year, month, icb_name, stp_id, regional_team_id),
+    list_size = sum(practice_list_size),
+    items = sum(items),
+    rate = items / list_size * 1000
+  )
+
+tapply(icb_tirzepatide$rate, icb_tirzepatide$icb_name, summary)
+
+
+ggplot(
+  icb_tirzepatide,
+) +
+  geom_line(
+    aes(
+      x = month,
+      y = rate,
+      group = icb_name,
+      color = regional_team_id,
+    ),
+    alpha = 0.6
+  ) +
+  theme_bw() +
+  facet_wrap(vars(icb_name))
+
+ggsave(
+  here::here(
+    "output",
+    "cleaning",
+    "test_tirzepatide.png"
+  )
+)
+tapply(icb_tirzepatide$rate, icb_tirzepatide$month, summary)
+
+# exclude_size_low <-
+#   quantile(tirzepatide_clean$total_list_size, 0.05, na.rm = T)
+
+# exclude_size_high <-
+#   quantile(tirzepatide_clean$total_list_size, 0.95, na.rm = T)
+
+# tirzepatide_exclude <- tirzepatide_clean_pre %>%
 #   filter(
-#     strength %in%
-#       c(
-#         "5mg / 0.6ml",
-#         "7.5mg / 0.6ml",
-#         "10mg / 0.6ml",
-#         "2.5mg / 0.6ml",
-#         "15mg / 0.6ml",
-#         "12.5mg / 0.6ml"
-#       )
-#   ) %>%
-#   # Q: Why does orlistat have practice but not df_tirzepatide_practice, can we fix?
-#   left_join(
-#     df_normalised_prescribing,
-#     by = c("month", "practice")
-#   ) %>%
-#   left_join(
-#     icb_stats_clean,
-#     by = c("stp" = "stp_id", "month")
+#     !between(
+#       total_list_size,
+#       exclude_size_low,
+#       exclude_size_high
+#     )
 #   )
 
-# t <- Sys.time()
-# d <- tirzepatide_clean %>%
-#   summarize(
-#     .by = c(month, icb_name, regional_team, total_list_size, ),
-#     items = sum(items),
-#     rateper1000 = items / last(total_list_size) * 1000
-#   )
-# Sys.time() - t
-# summary(d$rateper1000)
+# tirzepatide_clean <- tirzepatide_clean_pre %>%
+#   filter(between(
+#     total_list_size,
+#     exclude_size_low,
+#     exclude_size_high
+#   ))
+
+# tapply(
+#   tirzepatide_clean_pre$rateper1000,
+#   tirzepatide_clean_pre$strength,
+#   summary
+# )
+
+tapply(
+  df_practice_stats$total_list_size,
+  df_practice_stats$status_code,
+  summary
+)
+
+z <- tirzepatide_clean %>% filter(is.na(rateper1000))
+ggplot(data = practice_stats_clean %>% filter(status_code == "A")) +
+  geom_histogram(aes(x = total_list_size))
+
+t <- Sys.time()
+d <- tirzepatide_clean %>%
+  summarize(
+    .by = c(month, practice, total_list_size),
+    items = sum(items),
+    rateper1000 = items / last(total_list_size) * 1000
+  )
+Sys.time() - t
+summary(d$rateper1000)
