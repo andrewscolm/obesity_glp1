@@ -26,8 +26,15 @@ __pycache__/
 .Trash-*/
 .Rproj.user
 
-# Output folder
-/output/*
+# Project folders
+output/
+outputs/
+data/
+notebooks/
+
+# Specific files
+data.zip
+quarto-1.9.30-linux-amd64.deb
 
 # r history
 .Rhistory
