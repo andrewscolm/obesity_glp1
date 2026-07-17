@@ -32,6 +32,7 @@ decile_labels <- names(decile_cols)
 # ------------------------------------------------------------
 
 df_plot <- practice_tirzepatide %>%
+  # Latest month
   filter(month == as.Date("2025-12-01")) %>%
   filter(is.finite(rate), !is.na(stp_id)) %>%
   mutate(

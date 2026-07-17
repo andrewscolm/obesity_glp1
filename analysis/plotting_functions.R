@@ -3,6 +3,7 @@ library(patchwork)
 library(glue)
 library(scales)
 
+# Load data ----
 
 df_tirzepatide_icb_month <-
   readRDS(here::here("data", "df_tirzepatide_icb_month.rds"))
@@ -32,6 +33,8 @@ date_tirzepatide_ng <- as.Date("2024-12-23")
 date_tirzepatide_diab <- as.Date("2023-10-25")
 
 
+# Helper functions ----
+
 # Formats ICB names by replacing the last space in the first n characters of a string with a given string (default is 20 and "\n"). This is useful for formatting ICB names for plotting, ensuring that the last word in the first 20 characters is separated by an underscore for better readability in plot titles or labels.
 replace_last_space_firstn <- function(x, n = 24, replacement = "\n") {
   sapply(
@@ -59,6 +62,13 @@ replace_last_space_firstn <- function(x, n = 24, replacement = "\n") {
     },
     USE.NAMES = FALSE
   )
+}
+
+icb_title_name <- function(icb_names, line_split_n = 1000) {
+  icb_names %>%
+    str_remove_all("NHS | ICB") %>%
+    str_squish() %>%
+    replace_last_space_firstn(., n = 29)
 }
 
 grid_dims <- function(n) {
@@ -191,6 +201,8 @@ patchwork_y_label <- function(text = "Rate per 1000 registered patients") {
     theme_void()
 }
 
+# Plotting functions
+
 plot_by_icb_sorted_by_region_with_background <- function(
   df,
   plot_expr,
@@ -214,9 +226,9 @@ plot_by_icb_sorted_by_region_with_background <- function(
   })
 
   n_icbs <- length(unique(df$icb_name))
-  dims <- grid_dims(n_icbs)
-  nrow_plot <- dims["nrow"]
-  ncol_plot <- dims["ncol"]
+  dims <- grid_dims(42)
+  nrow_plot <- unname(dims["nrow"])
+  ncol_plot <- unname(dims["ncol"])
 
   plots <- purrr::imap(
     icb_names,
@@ -292,10 +304,7 @@ plot_icb_with_background_color <- function(
 
   col_pal <- get_color_palette()
 
-  icb_title_name <- icbname %>%
-    str_remove_all("NHS | ICB") %>%
-    str_squish() %>%
-    replace_last_space_firstn(., n = 29)
+  icb_title_name <- icb_title_name(icbname, 29)
 
   current_region <- df %>%
     filter(icb_name == icbname) %>%
@@ -445,22 +454,24 @@ plot_icb_tirzepatide_strength <- function(
 
 # # # ==============
 
-# prev_diff <- diff
-# t <- Sys.time()
-# plot_by_icb_sorted_by_region_with_background(
-#   df = df_tirzepatide_icb_month,
-#   plot_expr = expr(
-#     plot_icb_with_background_color(
-#       df = df,
-#       icb_name = icb_name,
-#       x_axis_text = add_x_axis_text,
-#       y_axis_text = add_y_axis_text
-#     )
-#   ),
-#   line_legend = get_col_pal_legend(palette_names = "icb_3"),
-#   save_png = T,
-#   png_filename = here::here("output", "protocol", "tirzepitide_icb_region.png")
-# )
+# Create plots ----
+
+prev_diff <- diff
+t <- Sys.time()
+plot_by_icb_sorted_by_region_with_background(
+  df = df_tirzepatide_icb_month,
+  plot_expr = expr(
+    plot_icb_with_background_color(
+      df = df,
+      icb_name = icb_name,
+      x_axis_text = add_x_axis_text,
+      y_axis_text = add_y_axis_text
+    )
+  ),
+  line_legend = get_col_pal_legend(palette_names = "icb_3"),
+  save_png = T,
+  png_filename = here::here("output", "protocol", "tirzepitide_icb_region.png")
+)
 
 # diff <- Sys.time() - t
 # prev_diff

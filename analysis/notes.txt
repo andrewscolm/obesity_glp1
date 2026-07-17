@@ -1,0 +1,42 @@
+todo:
+
+1. check cleaning script vs qmd output
+
+2. obesity register rates
+
+3. clean up scripts
+
+4. Check extremes of distributions
+
+5. Plots
+- update x axes labels
+- fix spacing for nhs bath 
+- play more with text size
+- add icb names to spread plot
+
+
+Q's
+1. Should we exclude any practices?
+- practices with fewer than 10/20/100 patients?
+- practices with list size < items or n items > size * n?
+- What is org_type (CCG, PCT)
+
+2. Are there issues with joins/list sizes/icbs?
+- Why are there some months without a row in df_hscic_ccgs for practices? 
+    (see summary below => practice_name and list_size is NA)
+
+3. Why are items and quantities sometimes different and sometimes the same?
+x <- df_tirzepatide_practice %>% 
+    mutate(
+        iqdiff = items - quantity,
+        iqprop = items/quantity)
+        
+# Summaries ----
+
+practice_name and list_size is NA
+unique(practice_tirzepatide_na$practice)
+ [1] "Y06247" "Y05960" "K81638" "Y06311" "Y05190" "Y05125" "Y06153" "G82653" "Y03671" "Y06125"
+[11] "C81074" "Y05258" "Y05088" "F81651" "Y02747" "C86606" "L81101" "Y05257" "K83625" "B81065"
+[21] "B81675" "J82089" "Y02854" "L85050" "Y02787" "Y02572" "M92640"
+> length(unique(practice_tirzepatide_na$practice))
+[1] 27
