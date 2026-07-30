@@ -1,0 +1,104 @@
+```{r}
+#| label: load-packages
+#| include: false
+
+library(opr)
+library(dplyr)
+```
+
+```{r}
+#| label: connect
+con <- connect_bq()
+```
+
+```{r}
+#| label: queries
+
+get_normalised_prescribing(
+  con,
+  bnf_codes = "0601023AZ%",
+  start_date = "2026-02-01",
+  end_date = "2026-03-01"
+) %>%
+  select(-ends_with("_cost"), -quantity)
+
+db_gp_practices <- get_practices(con, filter_setting = 4) |>
+  collect()
+
+tbl(con, "bnf") |>
+  filter(
+    presentation_code == "0601023AZBBAGAG" |
+      presentation_code == "0601023AZAAAGAG"
+  ) |>
+  select(year_month,presentation_code, chemical)
+
+db_orlistat <- db_prescribing |>
+  semi_join(db_gp_practices, by = c("practice" = "code")) |>
+  collect()
+
+
+orlistat_prescribing_query <- get_normalised_prescribing(
+  con,
+  bnf_codes = "0405010P0%",
+  start_date = "2023-02-01",
+  end_date = "2023-03-01"
+) |>
+  select(
+    month,
+    regional_team,
+    items,
+    quantity,
+    stp,
+    bnf_code,
+    bnf_name
+  ) %>%
+  summarise(
+    items = sum(items),
+    quantity = sum(quantity),
+    .by = c(month, regional_team, bnf_code, bnf_name, stp)
+  ) %>%
+  collect()
+
+get_practices(
+  con,
+  add_setting_labels = TRUE,
+  filter_setting = 4,
+  add_status_code_labels = TRUE
+) |>
+  select(
+    code,
+    name,
+    ccg_id,
+    setting,
+    setting_label,
+    close_date,
+    join_provider_date,
+    leave_provider_date,
+    open_date,
+    status_code,
+    status_code_label
+  )
+
+bnf_query <- dplyr::tbl(con, "bnf") |>
+  select(year_month, presentation_code, chemical)
+
+dplyr::tbl(con, "practice_statistics") |>
+  select(month,pct_id, practice, total_list_size, month)
+
+
+df_orlistat <- orlistat_prescribing_query |>
+  inner_join(practices_query, by = c("practice" = "code")) |>
+  inner_join(bnf_query, by = c("bnf_code" = "presentation_code")) |>
+  group_by(month, bnf_name, chemical, stp, regional_team) %>%
+  summarise(
+    items = sum(items),
+    quantity = sum(quantity),
+    month,
+    regional_team,
+    chemical,
+    bnf_name,
+    stp
+  ) |>
+  show_query()
+```
+
