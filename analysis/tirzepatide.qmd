@@ -1,0 +1,306 @@
+---
+title: "Obesity and GLP-1s"
+format: 
+  html:
+    fontsize: 11px
+    mainfont: "Arial"
+---
+
+```{r}
+#| label: load-packages
+#| include: false
+
+library(dplyr)
+library(readr)
+library(here)
+library(glue)
+library(tidyr)
+library(stringr)
+library(scales) ## format label_number
+library(gt) ## gt table
+library(ggplot2)
+library(lubridate) # interval
+library(arrow)
+```
+
+```{r}
+#| label: import_design_files
+
+source(here("analysis", "design", "design.r"))
+source(here("analysis", "functions", "functions.r"))
+source(here("analysis", "functions", "utils.r"))
+```
+
+```{r}
+#| label: run-opr
+#| eval: false
+
+source(here("analysis", "opr_extract.r"))
+```
+
+```{r}
+#| label: import-data
+#| include: false
+
+#### practice level orlistat data
+df_orlistat_practice <- read_parquet(here::here("data", "df_orlistat.parquet"))
+
+#### practice level tirzepatide data
+df_tirzepatide_practice <- read_parquet(here::here(
+  "data",
+  "df_tirzepatide.parquet"
+))
+
+### ccgs from practice
+df_ccgs <- read_parquet(here::here(
+  "data",
+  "df_ccgs.parquet"
+))
+
+
+df_chemical_names_orlistat <- read_parquet(
+  here("data", "df_bnf_orlistat.parquet")
+) |>
+  select(-year_month)
+
+df_chemical_names_tirzepatide <- read_parquet(
+  here("data", "df_bnf_tirzepatide.parquet")
+) |>
+  select(-year_month)
+
+df_practice_open_info <- read_parquet(
+  here("data", "df_gp_practices.parquet")
+)
+
+df_practice_list_size <- read_parquet(
+  here("data", "df_practice_statistics.parquet")
+)
+
+df_region_names <- read_parquet(
+  here("data", "df_regional_teams.parquet")
+)
+
+df_stp_names <- read_parquet(
+  here("data", "df_stp_names.parquet")
+)
+```
+
+
+```{r}
+#| label: tirzepatide_clean
+#| include: false
+df_tirzepatide_practice <- df_tirzepatide_practice %>%
+  mutate(
+    strength = gsub("[^0-9/.]", "", bnf_name),
+    strength = gsub("2.4", "", strength),
+    strength = gsub("/", "mg / ", strength),
+    strength = glue("{strength}ml")
+  ) |>
+  select(-sha, -pct)
+```
+
+```{r}
+#| label: orlistat_clean
+#| include: false
+df_orlistat_practice <- df_orlistat_practice |>
+  mutate(
+    strength = gsub("\\D", "", bnf_name),
+    strength = glue("{strength}mg")
+  ) |>
+  select(-sha, -pct)
+```
+
+
+```{r}
+#| label: filter_practices
+#| include: false
+
+### join practice open dates to practice list size by code / practice
+df_included_practices <- df_practice_open_info |>
+  inner_join(df_practice_list_size, by = join_by(code == practice)) |>
+  ## create closed status by month
+  ## close date is after end of month, join date is before month, leave_provider_date is after end of month)
+  mutate(
+    month_status = case_when(
+      !is.na(close_date) & close_date <= rollforward(month) ~ "closed",
+      (!is.na(join_provider_date) & join_provider_date >= month) ~ "not opened",
+      !is.na(leave_provider_date) &
+        (leave_provider_date <= rollforward(month)) ~ "left provider",
+      .default = "open"
+    )
+  ) |>
+  # exclude unopen, dormat and pratcices with list_size < 1000
+  filter(
+    month_status == "open",
+    status_code_label != "Dormant",
+    total_list_size >= 1000
+  ) |>
+  select(code, month, total_list_size, ccg_id) |>
+  left_join(
+    df_ccgs |> select(code, regional_team_id, stp_id),
+    by = join_by(ccg_id == code)
+  )
+```
+
+```{r}
+#| label: filter_practices_data_checks
+#| eval: false
+
+# check you don't lose practices
+df_practice_open_info |>
+  distinct(code) |>
+  nrow()
+
+df_practice_list_size |>
+  distinct(practice) |>
+  nrow()
+
+df_included_practices |>
+  distinct(code) |>
+  nrow()
+
+
+## count open practices with missing list size
+df_included_practices |>
+  filter(is.na(total_list_size), status_code_label == "Active") |>
+  nrow()
+
+## show open practices with missing list size
+View(
+  df_included_practices |>
+    filter(is.na(total_list_size), status_code_label == "Active")
+)
+
+### discordants
+df_included_practices |>
+  filter(month_status == "open", status_code_label != "Active") |>
+  nrow()
+
+## how many are dormant?
+df_included_practices |>
+  filter(month_status == "open", status_code_label == "Dormant") |>
+  nrow()
+
+### how many have missing stp?
+```
+
+
+
+```{r}
+#| label: combine_data_sets
+#| include: false
+
+combine_data <- function(drug) {
+  df <- get(glue("df_{drug}_practice"))
+
+  df_strength <- df |>
+    distinct(strength)
+
+  df_included_practices <- df_included_practices |>
+    crossing(df_strength)
+
+  ### add chemical name from df_chemical_names_
+  df2 <- df |>
+    inner_join(
+      get(glue("df_chemical_names_{drug}")),
+      by = join_by(bnf_code == presentation_code)
+    )
+  ### warn if rows added or removed
+  if (nrow(df2) != nrow(df)) {
+    print(glue("df mismatch bnf: df {nrow(df)}, df2 {nrow(df2)}"))
+  }
+
+  df2 <- df2
+  ### add practice info from df_included_practices
+  df3 <- df2 |>
+    right_join(
+      df_included_practices,
+      by = join_by(month, strength, practice == code)
+    ) %>%
+    select(-bnf_name)
+
+  df3 |>
+    fill(c(regional_team, stp), .direction = "downup", .by = practice) |>
+    fill(chemical, .direction = "downup") |>
+    ungroup() |>
+    mutate(
+      regional_team = case_when(
+        is.na(regional_team) ~ regional_team_id,
+        .default = regional_team
+      ),
+      stp = case_when(is.na(stp) ~ stp_id, .default = stp),
+      items = replace_na(items, 0)
+    ) |>
+    select(-bnf_code, -ccg_id, -regional_team_id)
+}
+```
+
+
+```{r}
+#| label: icb-level
+#| include: false
+
+icb_level_data <- function(drug, strength = FALSE) {
+  ## aggregate to stp level
+  if (strength == FALSE) {
+    df <- combine_data(drug) |>
+      summarise(
+        item = sum(items, na.rm = T),
+        total_list_size = sum(total_list_size, na.rm = T),
+        .by = c(stp, regional_team, month)
+      )
+  }
+  ## aggregate to stp level and strength
+  if (strength == TRUE) {
+    df <- combine_data(drug) |>
+      summarise(
+        item = sum(items, na.rm = T),
+        total_list_size = sum(total_list_size, na.rm = T),
+        .by = c(stp, regional_team, month, strength)
+      )
+  }
+
+  df
+}
+
+icb_level_data("orlistat")
+icb_level_data("orlistat", T)
+icb_level_data("tirzepatide")
+```
+
+```{r}
+#| label: all-england
+#| include: false
+
+england_level_data <- function(drug, strength = FALSE) {
+  ## aggregate to stp level
+  if (strength == FALSE) {
+    df <- combine_data(drug) |>
+      summarise(
+        item = sum(items, na.rm = T),
+        total_list_size = sum(total_list_size, na.rm = T),
+        .by = c(month)
+      )
+  }
+  ## aggregate to stp level and strength
+  if (strength == TRUE) {
+    df <- combine_data(drug) |>
+      summarise(
+        item = sum(items, na.rm = T),
+        total_list_size = sum(total_list_size, na.rm = T),
+        .by = c(month, strength)
+      )
+  }
+
+  df
+}
+
+
+df_orlistat <- england_level_data("orlistat")
+df_tirzepatide <- england_level_data("tirzepatide", T)
+```
+
+```{r}
+#| label: run_above
+#| include: false
+```
