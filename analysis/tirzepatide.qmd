@@ -116,72 +116,218 @@ df_orlistat_practice <- df_orlistat_practice |>
 #| include: false
 
 ### join practice open dates to practice list size by code / practice
-df_included_practices <- df_practice_open_info |>
-  inner_join(df_practice_list_size, by = join_by(code == practice)) |>
-  ## create closed status by month
-  ## close date is after end of month, join date is before month, leave_provider_date is after end of month)
-  mutate(
-    month_status = case_when(
-      !is.na(close_date) & close_date <= rollforward(month) ~ "closed",
-      (!is.na(join_provider_date) & join_provider_date >= month) ~ "not opened",
-      !is.na(leave_provider_date) &
-        (leave_provider_date <= rollforward(month)) ~ "left provider",
-      .default = "open"
+included_practice_status <- function() {
+  df <- df_practice_open_info |>
+    full_join(df_practice_list_size, by = join_by(code == practice)) |>
+    ## create closed status by month
+    ## close date is after end of month, join date is before month, leave_provider_date is after end of month)
+    mutate(
+      month_status = case_when(
+        !is.na(close_date) & close_date <= rollforward(month) ~ "closed",
+        (!is.na(join_provider_date) &
+          join_provider_date >= month) ~ "not opened",
+        !is.na(leave_provider_date) &
+          (leave_provider_date <= rollforward(month)) ~ "left provider",
+        .default = "open"
+      )
+    ) |>
+    left_join(
+      df_ccgs |> select(code, regional_team_id, stp_id),
+      by = join_by(ccg_id == code)
     )
-  ) |>
-  # exclude unopen, dormat and pratcices with list_size < 1000
-  filter(
-    month_status == "open",
-    status_code_label != "Dormant",
-    total_list_size >= 1000
-  ) |>
-  select(code, month, total_list_size, ccg_id) |>
-  left_join(
-    df_ccgs |> select(code, regional_team_id, stp_id),
-    by = join_by(ccg_id == code)
-  )
+}
+
+
+included_practices <- function() {
+  included_practice_status() |>
+    # exclude unopen, dormat and pratcices with list_size < 1000
+    filter(
+      month_status == "open",
+      status_code_label != "Dormant",
+      total_list_size >= 1000
+    ) |>
+    select(code, month, total_list_size, ccg_id) |>
+    left_join(
+      df_ccgs |> select(code, regional_team_id, stp_id),
+      by = join_by(ccg_id == code)
+    )
+}
 ```
 
 ```{r}
 #| label: filter_practices_data_checks
 #| eval: false
 
-# check you don't lose practices
-df_practice_open_info |>
-  distinct(code) |>
-  nrow()
+df_included_practice_status <- included_practice_status()
+
+### number of practices in dfs
+df_practice_open_info |> distinct(code) |> nrow()
 
 df_practice_list_size |>
   distinct(practice) |>
   nrow()
 
-df_included_practices |>
+df_included_practice_status |> distinct(code) |> nrow()
+
+## count practices with missing list size (i.e. not in df_practice_list_size)
+df_included_practice_status |>
+  filter(is.na(total_list_size)) |>
   distinct(code) |>
   nrow()
 
 
-## count open practices with missing list size
-df_included_practices |>
-  filter(is.na(total_list_size), status_code_label == "Active") |>
+## count practices with missing setting (i.e. not in df_practice_open_info)
+df_included_practice_status |>
+  filter(is.na(setting)) |>
+  distinct(code) |>
   nrow()
 
-## show open practices with missing list size
+#identify practices with missing setting (i.e. not in df_practice_open_info)
+df_included_practice_status |>
+  filter(is.na(setting)) |>
+  count(month, by = month_status)
+
 View(
-  df_included_practices |>
-    filter(is.na(total_list_size), status_code_label == "Active")
+  df_included_practice_status |>
+    filter(is.na(setting)) |>
+    distinct(code) |>
+    left_join(
+      df_practice_list_size |>
+        summarise(
+          mean_list_size = mean(total_list_size),
+          n_months = n(),
+          last_date = (max(month)),
+          .by = practice
+        ),
+      by = join_by(code == practice)
+    ) |>
+    select(code, mean_list_size, n_months, last_date)
 )
 
-### discordants
-df_included_practices |>
-  filter(month_status == "open", status_code_label != "Active") |>
-  nrow()
 
-## how many are dormant?
-df_included_practices |>
-  filter(month_status == "open", status_code_label == "Dormant") |>
-  nrow()
+#identify active practices with missing list size (i.e. not in df_practice_list_size)
+df_missing_active <- df_included_practice_status |>
+  filter(is.na(total_list_size), status_code_label == "Active") |>
+  select(code, name, stp_id)
 
-### how many have missing stp?
+df_included_practice_status |>
+  filter(is.na(total_list_size), status_code_label == "Active") |>
+  count(stp_id) |>
+  arrange(-n)
+
+# df with only practices in df_practice_list_size
+df_included_practice_status_withlist <- df_included_practice_status |>
+  filter(!(is.na(total_list_size)), !is.na(setting))
+
+## check 15 practices lost from df_practice_list_size (monthly counts of df_included_practice_status_withlist == monthly counts of df_included_practice_status_withlist should be TRUE)
+df_included_practice_status_withlist |>
+  count(month) |>
+  full_join(df_practice_list_size |> count(month)) |>
+  nrow() ==
+  df_included_practice_status_withlist |> count(month) |> nrow()
+
+### check status by month
+df_included_practice_status_withlist |>
+  count(month, .by = month_status)
+
+## check status at fetch date
+df_fetch_status <- df_included_practice_status_withlist |>
+  filter(month == as.Date(end_date)) |>
+  count(month_status)
+
+
+### practices that don't make it to end date
+df_end_practices <- df_included_practice_status_withlist |>
+  filter(month == as.Date(end_date)) |>
+  select(code, name, stp_id, status_code_label)
+
+df_all_practices <- df_included_practice_status_withlist |>
+  select(code, name, stp_id, status_code_label)
+
+df_all_practices |>
+  anti_join(df_end_practices) |>
+  distinct()
+
+## by active type
+df_all_practices |>
+  anti_join(df_end_practices) |>
+  filter(status_code_label == "Active") |>
+  distinct()
+
+
+## check all practices have a status at fetch date (Total rows in df_included_practice_status_withlist == total number of statuses in df_fetch_status should be TRUE )
+df_included_practice_status_withlist |>
+  filter(month == as.Date(end_date)) |>
+  nrow() ==
+  df_fetch_status |>
+    pull(n) |>
+    sum()
+
+
+### check discordants
+df_included_practice_status_withlist |>
+  filter(
+    month_status == "open",
+    month == as.Date(end_date)
+  ) |>
+  count(status_code_label)
+
+# identify non-active practices at fetch date
+df_non_actice <- df_included_practice_status_withlist |>
+  filter(
+    status_code_label != "Active",
+    month_status == "open",
+    month == as.Date(end_date)
+  ) |>
+  select(code, name, status_code_label, stp_id, total_list_size) |>
+  arrange(stp_id)
+
+df_included_practice_status_withlist |>
+  filter(
+    status_code_label != "Active",
+    month_status == "open",
+    month == as.Date(end_date)
+  ) |>
+  count(status_code_label, .by = stp_id) |>
+  arrange(-n)
+
+
+### how many practices are lost by filtering by >1000 patients
+df_included_practice_status_withlist |>
+  filter(
+    month == as.Date(end_date),
+    total_list_size >= 1000
+  )
+
+# identify non-active practices at fetch date
+df_included_practice_status_withlist |>
+  filter(
+    month == as.Date(end_date),
+    total_list_size >= 1000
+  ) |>
+  filter(
+    status_code_label != "Active",
+    month_status == "open",
+    month == as.Date(end_date)
+  ) |>
+  count(status_code_label, .by = stp_id) |>
+  arrange(-n)
+
+#### final dataset (remove dormant practices)
+df_included_practice_status_withlist |>
+  filter(
+    month == as.Date(end_date),
+    total_list_size >= 1000
+  ) |>
+  filter(
+    status_code_label != "Dormant",
+    month_status == "open",
+    month == as.Date(end_date)
+  ) |>
+  count(status_code_label, .by = stp_id) |>
+  arrange(-n) |>
+  pull(n) |>
+  sum()
 ```
 
 
@@ -196,7 +342,7 @@ combine_data <- function(drug) {
   df_strength <- df |>
     distinct(strength)
 
-  df_included_practices <- df_included_practices |>
+  df_included_practices <- included_practices() |>
     crossing(df_strength)
 
   ### add chemical name from df_chemical_names_
@@ -353,7 +499,24 @@ mp_end <- mp_end |>
 ### join practices and population
 end_info <- mp_end |>
   inner_join(np_end) |>
-  select(drug, stp, n_practices, total_list_size)
+  select(drug, stp, n_practices, total_list_size) |>
+  arrange(-n_practices)
+
+### identify practices that didn't prescribe
+View(
+  df_nonprescribed("tirzepatide") |>
+    filter(month == as.Date(end_date)) |>
+    select(practice, total_list_size) %>%
+    left_join(
+      df_practice_open_info |> select(code, name, ccg_id),
+      by = join_by(practice == code)
+    ) |>
+    left_join(
+      df_ccgs |> select(code, regional_team_id, stp_id),
+      by = join_by(ccg_id == code)
+    ) |>
+    select(practice, name, stp_id, regional_team_id, total_list_size)
+)
 ```
 
 
