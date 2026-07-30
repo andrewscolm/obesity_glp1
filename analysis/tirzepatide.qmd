@@ -237,6 +237,127 @@ combine_data <- function(drug) {
 
 
 ```{r}
+#| label: non-prescribing practices
+#| include: false
+
+df_nonprescribed <- function(drug, ...) {
+  combine_data(drug) |>
+    summarise(
+      items = sum(items),
+      total_list_size = mean(total_list_size),
+      .by = c(month, practice, ...)
+    ) |>
+    filter(items == 0)
+}
+
+missed_population <- function(drug, ...) {
+  df <- df_nonprescribed(drug, ...) |>
+    summarise(
+      total_list_size = sum(total_list_size),
+      .by = c(month, ...)
+    )
+}
+
+nonprescribing_practices <- function(drug, ...) {
+  df <- df_nonprescribed(drug, ...) |>
+    count(month, .by = ...) %>%
+    rename(n_practices = n)
+  df
+}
+
+### check non expected icb
+# combine_data("tirzepatide") |> anti_join(icbs, by = join_by(stp == code))
+
+##### compare number of practices not prescribing
+np_tirz <- nonprescribing_practices("tirzepatide") |>
+  mutate(drug = "tirzepatide")
+np_orli <- nonprescribing_practices("orlistat") |> mutate(drug = "orlistat")
+
+np_comparison <- np_tirz |> bind_rows(np_orli)
+
+### by stp
+np_tirz_stp <- nonprescribing_practices("tirzepatide", stp) |>
+  mutate(drug = "tirzepatide")
+np_orli_stp <- nonprescribing_practices("orlistat", stp) |>
+  mutate(drug = "orlistat")
+
+np_comparison_stp <- np_tirz_stp |> bind_rows(np_orli_stp)
+
+
+np_comparison_plot_stp <- np_comparison_stp |>
+  ggplot(aes(x = month, y = n_practices, colour = drug)) +
+  facet_wrap(vars(stp)) +
+  geom_line()
+
+
+ggsave(
+  filename = here::here(
+    "output",
+    "icb",
+    "nonprescribing",
+    "nonprescribing.png"
+  ),
+  np_comparison_plot_stp,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+
+##### last month non-prescribing practices
+np_end <- np_tirz |>
+  filter(month == as.Date(end_date)) |>
+  mutate(stp = "England")
+np_end_stp <- np_tirz_stp |> filter(month == as.Date(end_date))
+#check ICB sum total matches England total
+# sum(np_end_stp |> pull(n)) == np_end |> pull(n)
+np_end <- np_end |>
+  bind_rows(np_end_stp)
+
+
+### compare number of patients from non-prescribing practices
+mp_tirz <- missed_population("tirzepatide") |> mutate(drug = "tirzepatide")
+mp_orli <- missed_population("orlistat") |> mutate(drug = "orlistat")
+
+mp_comparison <- mp_tirz |> bind_rows(mp_orli)
+
+
+mp_comparison_plot <- mp_comparison |>
+  ggplot(aes(x = month, y = total_list_size, colour = drug)) +
+  geom_line()
+
+### compare number of patients from non-prescribing practices by ICB (stp)
+mp_tirz_stp <- missed_population("tirzepatide", stp) |>
+  mutate(drug = "tirzepatide")
+mp_orli_stp <- missed_population("orlistat", stp) |> mutate(drug = "orlistat")
+
+mp_comparison_stp <- mp_tirz_stp |> bind_rows(mp_orli_stp)
+
+
+mp_comparison_plot_stp <- mp_comparison_stp |>
+  ggplot(aes(x = month, y = total_list_size, colour = drug)) +
+  facet_wrap(vars(stp)) +
+  geom_line()
+
+##### last month non-prescribing practices population
+mp_end <- mp_tirz |>
+  filter(month == as.Date(end_date)) |>
+  mutate(stp = "England")
+mp_end_stp <- mp_tirz_stp |> filter(month == as.Date(end_date))
+#check ICB sum total matches England total
+# sum(mp_end_stp |> pull(total_list_size)) == mp_end |> pull(total_list_size)
+mp_end <- mp_end |>
+  bind_rows(mp_end_stp)
+
+### join practices and population
+end_info <- mp_end |>
+  inner_join(np_end) |>
+  select(drug, stp, n_practices, total_list_size)
+```
+
+
+```{r}
 #| label: icb-level
 #| include: false
 
