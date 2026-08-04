@@ -226,6 +226,7 @@ df_included_practice_status_withlist |>
   nrow() ==
   df_included_practice_status_withlist |> count(month) |> nrow()
 
+
 ### check status by month
 df_included_practice_status_withlist |>
   count(month, .by = month_status)
@@ -246,7 +247,8 @@ df_all_practices <- df_included_practice_status_withlist |>
 
 df_all_practices |>
   anti_join(df_end_practices) |>
-  distinct()
+  distinct() |>
+  count(status_code_label)
 
 ## by active type
 df_all_practices |>
@@ -312,6 +314,7 @@ df_included_practice_status_withlist |>
   ) |>
   count(status_code_label, .by = stp_id) |>
   arrange(-n)
+
 
 #### final dataset (remove dormant practices)
 df_included_practice_status_withlist |>
@@ -517,6 +520,120 @@ View(
     ) |>
     select(practice, name, stp_id, regional_team_id, total_list_size)
 )
+```
+
+```{r}
+#| label: dormant
+#| eval: false
+dormant_practices <- function(status_label) {
+  included_practice_status() |>
+    # exclude unopen, dormat and pratcices with list_size < 1000
+    filter(
+      month_status == "open",
+      status_code_label == status_label,
+      total_list_size >= 1000
+    ) |>
+    select(code, month, total_list_size, ccg_id) |>
+    left_join(
+      df_ccgs |> select(code, regional_team_id, stp_id),
+      by = join_by(ccg_id == code)
+    )
+}
+
+
+combine_data_dormant <- function(drug, status_label) {
+  df <- get(glue("df_{drug}_practice"))
+
+  df_strength <- df |>
+    distinct(strength)
+
+  df_included_practices <- dormant_practices(status_label) |>
+    crossing(df_strength)
+
+  ### add chemical name from df_chemical_names_
+  df2 <- df |>
+    inner_join(
+      get(glue("df_chemical_names_{drug}")),
+      by = join_by(bnf_code == presentation_code)
+    )
+  ### warn if rows added or removed
+  if (nrow(df2) != nrow(df)) {
+    print(glue("df mismatch bnf: df {nrow(df)}, df2 {nrow(df2)}"))
+  }
+
+  df2 <- df2
+  ### add practice info from df_included_practices
+  df3 <- df2 |>
+    right_join(
+      df_included_practices,
+      by = join_by(month, strength, practice == code)
+    ) %>%
+    select(-bnf_name)
+
+  df3 |>
+    fill(c(regional_team, stp), .direction = "downup", .by = practice) |>
+    fill(chemical, .direction = "downup") |>
+    ungroup() |>
+    mutate(
+      regional_team = case_when(
+        is.na(regional_team) ~ regional_team_id,
+        .default = regional_team
+      ),
+      stp = case_when(is.na(stp) ~ stp_id, .default = stp),
+      items = replace_na(items, 0)
+    ) |>
+    select(-bnf_code, -ccg_id, -regional_team_id)
+}
+
+df_dormant <- combine_data_dormant("tirzepatide", "Dormant")
+
+## number of dormant practices 60
+df_dormant |> distinct(practice) |> nrow()
+
+### any prescribing
+df_dormant <- df_dormant |>
+  summarise(items = sum(items), .by = c(month, practice))
+
+df_dormant |> count(month) %>% rename(n_practices = n)
+df_dormant_nil <- df_dormant |>
+  filter(items == 0) |>
+  count(month) %>%
+  rename(n_non_prescribing = n)
+df_dormant_any <- df_dormant |>
+  filter(items != 0) |>
+  count(month) %>%
+  rename(n_prescribing = n)
+df_dormant_all <- df_dormant |> count(month) %>% rename(n_practices = n)
+
+df_dormant_months <- df_dormant_all |>
+  left_join(df_dormant_nil) |>
+  left_join(df_dormant_any)
+
+
+#### retired
+df_retired <- combine_data_dormant("tirzepatide", "Retired")
+
+## number of retired practices 222
+df_retired |> distinct(practice) |> nrow()
+
+### any prescribing
+df_retired <- df_retired |>
+  summarise(items = sum(items), .by = c(month, practice))
+
+df_retired |> count(month) %>% rename(n_practices = n)
+df_retired_nil <- df_retired |>
+  filter(items == 0) |>
+  count(month) %>%
+  rename(n_non_prescribing = n)
+df_retired_any <- df_retired |>
+  filter(items != 0) |>
+  count(month) %>%
+  rename(n_prescribing = n)
+df_retired_all <- df_retired |> count(month) %>% rename(n_practices = n)
+
+df_retired_months <- df_retired_all |>
+  left_join(df_retired_nil) |>
+  left_join(df_retired_any)
 ```
 
 
