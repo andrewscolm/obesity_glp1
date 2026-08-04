@@ -76,7 +76,7 @@ df_gp_practices <- get_practices(
 
 df_practice_statistics <- dplyr::tbl(con, "practice_statistics") |>
   filter(month >= start_date, month <= end_date) |>
-  select(month, practice, total_list_size, month) |>
+  select(month, practice, total_list_size) |>
   collect()
 
 
