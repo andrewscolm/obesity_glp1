@@ -187,22 +187,20 @@ df_included_practice_status |>
   filter(is.na(setting)) |>
   count(month, by = month_status)
 
-View(
-  df_included_practice_status |>
-    filter(is.na(setting)) |>
-    distinct(code) |>
-    left_join(
-      df_practice_list_size |>
-        summarise(
-          mean_list_size = mean(total_list_size),
-          n_months = n(),
-          last_date = (max(month)),
-          .by = practice
-        ),
-      by = join_by(code == practice)
-    ) |>
-    select(code, mean_list_size, n_months, last_date)
-)
+df_included_practice_status |>
+  filter(is.na(setting)) |>
+  distinct(code) |>
+  left_join(
+    df_practice_list_size |>
+      summarise(
+        mean_list_size = mean(total_list_size),
+        n_months = n(),
+        last_date = (max(month)),
+        .by = practice
+      ),
+    by = join_by(code == practice)
+  ) |>
+  select(code, mean_list_size, n_months, last_date)
 
 
 #identify active practices with missing list size (i.e. not in df_practice_list_size)
@@ -359,16 +357,21 @@ combine_data <- function(drug) {
     print(glue("df mismatch bnf: df {nrow(df)}, df2 {nrow(df2)}"))
   }
 
-  df2 <- df2
+  df2 <- df2 |>
+    summarise(
+      items = sum(items),
+      chemical = last(chemical),
+      .by = c(month, regional_team, stp, practice, strength)
+    )
+
   ### add practice info from df_included_practices
   df3 <- df2 |>
     right_join(
       df_included_practices,
       by = join_by(month, strength, practice == code)
-    ) %>%
-    select(-bnf_name)
+    )
 
-  df3 |>
+  df3 <- df3 |>
     fill(c(regional_team, stp), .direction = "downup", .by = practice) |>
     fill(chemical, .direction = "downup") |>
     ungroup() |>
@@ -380,7 +383,9 @@ combine_data <- function(drug) {
       stp = case_when(is.na(stp) ~ stp_id, .default = stp),
       items = replace_na(items, 0)
     ) |>
-    select(-bnf_code, -ccg_id, -regional_team_id)
+    select(-ccg_id, -regional_team_id)
+
+  df3
 }
 ```
 
@@ -506,20 +511,18 @@ end_info <- mp_end |>
   arrange(-n_practices)
 
 ### identify practices that didn't prescribe
-View(
-  df_nonprescribed("tirzepatide") |>
-    filter(month == as.Date(end_date)) |>
-    select(practice, total_list_size) %>%
-    left_join(
-      df_practice_open_info |> select(code, name, ccg_id),
-      by = join_by(practice == code)
-    ) |>
-    left_join(
-      df_ccgs |> select(code, regional_team_id, stp_id),
-      by = join_by(ccg_id == code)
-    ) |>
-    select(practice, name, stp_id, regional_team_id, total_list_size)
-)
+df_nonprescribed("tirzepatide") |>
+  filter(month == as.Date(end_date)) |>
+  select(practice, total_list_size) %>%
+  left_join(
+    df_practice_open_info |> select(code, name, ccg_id),
+    by = join_by(practice == code)
+  ) |>
+  left_join(
+    df_ccgs |> select(code, regional_team_id, stp_id),
+    by = join_by(ccg_id == code)
+  ) |>
+  select(practice, name, stp_id, regional_team_id, total_list_size)
 ```
 
 ```{r}
@@ -641,64 +644,55 @@ df_retired_months <- df_retired_all |>
 #| label: icb-level
 #| include: false
 
-icb_level_data <- function(drug, strength = FALSE) {
+icb_level_data <- function(drug, ...) {
   ## aggregate to stp level
-  if (strength == FALSE) {
-    df <- combine_data(drug) |>
-      summarise(
-        item = sum(items, na.rm = T),
-        total_list_size = sum(total_list_size, na.rm = T),
-        .by = c(stp, regional_team, month)
-      )
-  }
-  ## aggregate to stp level and strength
-  if (strength == TRUE) {
-    df <- combine_data(drug) |>
-      summarise(
-        item = sum(items, na.rm = T),
-        total_list_size = sum(total_list_size, na.rm = T),
-        .by = c(stp, regional_team, month, strength)
-      )
-  }
+  df <- combine_data(drug) |>
+    summarise(
+      item = sum(items),
+      total_list_size = sum(total_list_size),
+      .by = c(month, ...)
+    )
 
   df
 }
 
-icb_level_data("orlistat")
-icb_level_data("orlistat", T)
-icb_level_data("tirzepatide")
+
+df_orlistat_icb_strength <- icb_level_data(
+  "orlistat",
+  stp,
+  regional_team,
+  strength
+)
+
+df_orlistat_icb <- icb_level_data("orlistat", stp, regional_team)
+
+df_tirzepatide_icb_strength <- icb_level_data(
+  "tirzepatide",
+  stp,
+  regional_team,
+  strength
+)
+
+df_tirzepatide_icb <- icb_level_data("tirzepatide", stp, regional_team)
+
+df_tirzepatide_england <- icb_level_data("tirzepatide")
+
+df_tirzepatide_england_strength <- icb_level_data("tirzepatide", strength)
 ```
 
 ```{r}
-#| label: all-england
-#| include: false
+#| label: icb_checks
+#| eval: false
 
-england_level_data <- function(drug, strength = FALSE) {
-  ## aggregate to stp level
-  if (strength == FALSE) {
-    df <- combine_data(drug) |>
-      summarise(
-        item = sum(items, na.rm = T),
-        total_list_size = sum(total_list_size, na.rm = T),
-        .by = c(month)
-      )
-  }
-  ## aggregate to stp level and strength
-  if (strength == TRUE) {
-    df <- combine_data(drug) |>
-      summarise(
-        item = sum(items, na.rm = T),
-        total_list_size = sum(total_list_size, na.rm = T),
-        .by = c(month, strength)
-      )
-  }
+### check each stp for each month has a row for each strength and list size is consistent (tibble should be empty)
+df_orlistat_icb_strength |>
+  count(month, stp, total_list_size) |>
+  filter(n != df_orlistat_icb_strength |> distinct(strength) |> nrow())
 
-  df
-}
-
-
-df_orlistat <- england_level_data("orlistat")
-df_tirzepatide <- england_level_data("tirzepatide", T)
+### check each stp for each month has a row for each strength and list size is consistent (tibble should be empty)
+df_tirzepatide_icb_strength |>
+  count(month, stp, total_list_size) |>
+  filter(n != df_tirzepatide_icb_strength |> distinct(strength) |> nrow())
 ```
 
 ```{r}
