@@ -647,9 +647,12 @@ df_retired_months <- df_retired_all |>
 icb_level_data <- function(drug, ...) {
   ## aggregate to stp level
   df <- combine_data(drug) |>
+    left_join(df_stp_names, by = join_by(stp == code)) |>
+    rename(icb_code = stp, icb_name = name) |>
     summarise(
-      item = sum(items),
+      items = sum(items),
       total_list_size = sum(total_list_size),
+      rateper1000 = items / total_list_size * 1000,
       .by = c(month, ...)
     )
 
@@ -659,21 +662,28 @@ icb_level_data <- function(drug, ...) {
 
 df_orlistat_icb_strength <- icb_level_data(
   "orlistat",
-  stp,
+  icb_code,
+  icb_name,
   regional_team,
   strength
 )
 
-df_orlistat_icb <- icb_level_data("orlistat", stp, regional_team)
+df_orlistat_icb <- icb_level_data("orlistat", icb_code, icb_name, regional_team)
 
 df_tirzepatide_icb_strength <- icb_level_data(
   "tirzepatide",
-  stp,
+  icb_code,
+  icb_name,
   regional_team,
   strength
 )
 
-df_tirzepatide_icb <- icb_level_data("tirzepatide", stp, regional_team)
+df_tirzepatide_icb <- icb_level_data(
+  "tirzepatide",
+  icb_code,
+  icb_name,
+  regional_team
+)
 
 df_tirzepatide_england <- icb_level_data("tirzepatide")
 
@@ -696,6 +706,26 @@ df_tirzepatide_icb_strength |>
 ```
 
 ```{r}
-#| label: run_above
+#| label: save_dfs
 #| include: false
+
+write_parquet(
+  df_tirzepatide_icb,
+  here("data", "df_tirzepatide_icb.parquet")
+)
+
+write_parquet(
+  df_tirzepatide_icb_strength,
+  here("data", "df_tirzepatide_icb_strength.parquet")
+)
+
+write_parquet(
+  df_orlistat_icb,
+  here("data", "df_orlistat_icb.parquet")
+)
+
+write_parquet(
+  df_orlistat_icb_strength,
+  here("data", "df_orlistat_icb_strength.parquet")
+)
 ```

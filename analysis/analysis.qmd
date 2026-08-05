@@ -1,0 +1,160 @@
+```{r}
+#| label: load-packages
+#| include: false
+
+library(dplyr)
+library(readr)
+library(here)
+library(glue)
+library(tidyr)
+library(stringr)
+library(scales) ## format label_number
+library(gt) ## gt table
+library(ggplot2)
+library(lubridate) # interval
+library(arrow)
+```
+
+
+```{r}
+#| label: import_design_files
+
+source(here("analysis", "design", "design.r"))
+source(here("analysis", "functions", "functions.r"))
+source(here("analysis", "functions", "utils.r"))
+```
+
+```{r}
+#| label: run-practice-dfs
+#| eval: false
+
+quarto::quarto_render(
+  input = "analysis/practice_dfs.qmd",
+)
+```
+
+
+```{r}
+#| label: load-practice-dfs
+#| eval: false
+
+df_tirzepatide_icb <- read_parquet(
+  here("data", "df_tirzepatide_icb.parquet")
+)
+
+df_tirzepatide_icb_strength <- read_parquet(
+  here("data", "df_tirzepatide_icb_strength.parquet")
+)
+
+df_orlistat_icb <- read_parquet(
+  here("data", "df_orlistat_icb.parquet")
+)
+
+df_orlistat_icb_strengthd <- read_parquet(
+  here("data", "df_orlistat_icb_strength.parquet")
+)
+
+df_qof_ob <- read_csv(here::here("data", "qof", "prevalence.csv"))
+
+df_qof_region <- read_csv(here::here("data", "qof", "geography.csv"))
+```
+
+
+```{r}
+#| label: add QOF data
+
+df_qof_icbs <- df_qof_region %>%
+  filter(year == "2024-25") %>%
+  group_by(icb_ods_code) %>%
+  summarise(icb_ods_code = last(icb_ods_code), icb_name = last(icb_name)) %>%
+  mutate(
+    icb_name = gsub("Integrated Care Board", "ICB", icb_name),
+    # icb_name = gsub("ICB","",icb_name),
+    #   icb_name = gsub("NHS ","",icb_name),
+    icb_name = str_wrap(icb_name, width = 33)
+  )
+```
+
+
+```{r}
+#| label: plot-orlistat
+#| include: false
+plot_orlistat_icb <- df_orlistat_icb_strength %>%
+  ggplot(aes(x = month, y = rateper1000, color = strength)) +
+  facet_wrap(vars(icb_name)) +
+  geom_line() +
+  scale_y_continuous(labels = label_comma()) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle(glue("Orlistat items per 1000 list size")) +
+  xlab("") +
+  ylab("Rate per 1000 list size")
+
+ggsave(
+  filename = here::here(
+    "output",
+    "icb",
+    "orlistat",
+    "orlistat_icb.png"
+  ),
+  plot_orlistat_icb,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+##### low strength only
+
+plot_orlistat_icb_low <- df_orlistat_icb_month %>%
+  filter(strength == "60mg") %>%
+  ggplot(aes(x = month, y = rateper1000)) +
+  facet_wrap(vars(icb_name)) +
+  geom_line(color = "blue") +
+  scale_y_continuous(labels = label_comma()) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle(glue("Orlistat items per 1000 list size")) +
+  xlab("") +
+  ylab("Rate per 1000 list size")
+
+ggsave(
+  filename = here::here(
+    "output",
+    "icb",
+    "orlistat",
+    "orlistat_icb_low_strength.png"
+  ),
+  plot_orlistat_icb_low,
+  dpi = 800,
+  width = 60,
+  height = 30,
+  units = "cm"
+)
+
+### by region
+for (region_name in regions) {
+  plot_orlistat_icb_region <- df_orlistat_icb_month %>%
+    filter(region == region_name) %>%
+    ggplot(aes(x = month, y = rateper1000, color = strength)) +
+    facet_wrap(vars(icb_name)) +
+    geom_line() +
+    scale_y_continuous(labels = label_comma()) +
+    theme(axis.text.x = element_text(angle = 90)) +
+    ggtitle(glue("Orlistat items per 1000 list size: {region_name}")) +
+    xlab("") +
+    ylab("Rate per 1000 list size")
+
+  ggsave(
+    filename = here::here(
+      "output",
+      "icb",
+      "orlistat",
+      glue("orlistat_icb_{region_name}.png")
+    ),
+    plot_orlistat_icb_region,
+    dpi = 800,
+    width = 60,
+    height = 30,
+    units = "cm"
+  )
+}
+```
