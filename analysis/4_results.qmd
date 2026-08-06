@@ -1,0 +1,55 @@
+---
+title: "Obesity and GLP-1s: Results section"
+format: 
+  html:
+    fontsize: 11px
+    mainfont: "Arial"
+---
+
+```{r}
+#| label: load-packages
+#| include: false
+
+library(dplyr)
+library(readr)
+library(here)
+library(glue)
+library(tidyr)
+library(stringr)
+library(scales) ## format label_number
+library(gt) ## gt table
+library(ggplot2)
+library(lubridate) # interval
+```
+
+## Tirzepatide prescribing per 1,000 registered patients.
+
+### England: 
+
+From January 2023 to December 2025 the number of patients registered to a practice in England increased from 56,941,117 to 63,936,682. The number of GP practices dropped from 6,437 to 6,250. The NICE diabetes guidance was introduced in October 2023, and the first observed prescribing was February 2024 (Figure 1A). In the initial month after the NICE obesity guideline there was a temporary drop in tirzepatide prescribing before the prescribing rate increased. We saw transient dips in prescribing rate in August 2025 and October / November 2025. In December 2025 the prescribing rate was 4.59 per 1,000 registered patients.
+
+We saw a similar pattern for tirzepatide prescribing per 1,000 QOF obesity register size (Figure 1B). In December 2025 the prescribing rate was 41.2 per 1,000 QOF obesity register size. The number of registered patients within an ICB was well correlated with the total ICB QOF obesity register size (Supplementary Figure S1).
+
+### ICB: 
+
+The overall prescribing rate of tirzepatide varied both across ICBs and within regions (Fig 2). The timing of the first prescription ranged from February 2024 (NHS Surrey Heartlands ICB) to April 2024 (NHS Derby and Derbyshire ICB and NHS Dorset ICB). In December 2025 the prescribing rate by ICB ranged from 8.8 (NHS Cornwall and the Isles of Scilly) to 1.36 per 1,000 patients (NHS Dorset), both in the South West (Fig 2). All ICBs other than NHS Derby and Derbyshire and NHS Staffordshire and Stoke-On-Trent (both Midlands) experienced either a temporary drop or flattening of prescribing rate immediately after tirzepatide was approved for weight management. We saw a similar pattern for tirzepatide prescribing per 1,000 QOF obesity register size. In December 2025 the prescribing rate per 1,000 QOF obesity register size for tirzepatide ranged from 0.0755 to 0.0134 (NHS Cornwall and the Isles of Scilly Integrated Care Board and NHS Dorset Integrated Care Board, respectively). (Supplementary Fig S2:).
+
+### By strength
+
+Across England as a whole 5mg / 0.6ml was the most commonly prescribed strength of tirzepatide. Patients should be initiated on a dose of 2.5mg / 0.6ml. In the early months of the rollout we see that 2.5mg / 0.6ml was the most frequently prescribed before the higher doses are more commonly prescribed. Prescribing rates of the highest strength (15mg / 0.6ml) remain relatively low (Fig 3). There is a transient drop in the prescribing of all strengths of tirzepatide following the introduction of the NICE obesity guidance.
+
+There was considerable variation in prescribing rate for all strengths across each of the 42 Integrated Care Boards (Supplementary Fig S3). All ICBs prescribed 2.5mg / 0.6ml strength within their first month of prescribing. 33 of the 42 ICBs prescribed 5mg /0.6ml strength in their first month of prescribing. No ICB prescribed 7.5mg /0.6ml or stronger in their first month of prescribing. Typically as ICBs initiated tirzepatide prescribing 2.5mg / 0.6ml was the most commonly prescribed before 5mg / 0.6ml became more commonly prescribed. All practices had a lag between tirzepatide being licensed for diabetes (dashed vertical line) and initiating prescribing.
+
+## Variation of tirzepatide prescribing rates within ICBs 
+
+Within the individual integrated care boards we saw considerable variation in the prescribing rates of individual practices. In December 2025 the prescribing rate of any strength of tirzepatide ranged from 0.55 per 1,000 registered patients (University Health Service Health Centre, NHS South Yorkshire ICB \[QF7\]) to 36.19 per 1,000 registered patients (Grovehurst surgery, NHS Kent and Medway ICB \[QKS\]). NHS Dorset ICB \[QVV\] had the smallest range in practice prescribing rate (0.29 - 4.32 per 1,000 registered patients) and NHS Kent and Medway ICB \[QKS\] had the largest range (0.10 - 36.19 per 1,000 registered patients).
+
+# Orlistat prescribing per 1,000 registered patients
+
+The 120mg strength of orlistat was consistently prescribed in all ICBs throughout the study period (Figure 4). Prescribing rate of orlistat varied both across all ICBs and within regions (Fig 3). Orlistat 120mg prescribing rate was consistently lowest in NHS Northamptonshire. In December 2025 the prescribing rate of 120mg orlistat ranged from 1.31 to 0.054 per 1,000, in NHS Black Country to NHS Northamptonshire respectively (both Midlands). The prescribing rate for 60mg orlistat ranged from 0.019 to 0.0008 per 1,000, in NHS Lincolnshire and NHS Nottingham and Nottinghamshire respectively (also both Midlands) (Supplementary Fig S4).   
+
+# Abstract
+
+## Results
+
+In December 2025 the prescribing rate per 1,000 registered patients of tirzepatide by ICBs ranged from 8.8 (NHS Cornwall and the Isles of Scilly) to 1.36 (NHS Dorset). The most commonly prescribed strength of tirzepatide was 5mg/0.6ml. The corresponding prescribing rate per 1,000 registered patients of orlistat ranged from 1.31 (NHS Black Country) to 0.054 per 1,000 (NHS Northamptonshire).
