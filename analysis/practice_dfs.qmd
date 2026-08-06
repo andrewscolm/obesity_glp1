@@ -670,6 +670,11 @@ df_orlistat_icb_strength <- icb_level_data(
 
 df_orlistat_icb <- icb_level_data("orlistat", icb_code, icb_name, regional_team)
 
+df_orlistat_england <- icb_level_data("orlistat")
+
+df_orlistat_england_strength <- icb_level_data("orlistat", strength)
+
+
 df_tirzepatide_icb_strength <- icb_level_data(
   "tirzepatide",
   icb_code,
@@ -710,6 +715,16 @@ df_tirzepatide_icb_strength |>
 #| include: false
 
 write_parquet(
+  df_tirzepatide_england,
+  here("data", "df_tirzepatide_england.parquet")
+)
+
+write_parquet(
+  df_tirzepatide_england_strength,
+  here("data", "df_tirzepatide_england_strength.parquet")
+)
+
+write_parquet(
   df_tirzepatide_icb,
   here("data", "df_tirzepatide_icb.parquet")
 )
@@ -717,6 +732,17 @@ write_parquet(
 write_parquet(
   df_tirzepatide_icb_strength,
   here("data", "df_tirzepatide_icb_strength.parquet")
+)
+
+
+write_parquet(
+  df_orlistat_england,
+  here("data", "df_orlistat_england.parquet")
+)
+
+write_parquet(
+  df_orlistat_england_strength,
+  here("data", "df_orlistat_england_strength.parquet")
 )
 
 write_parquet(
