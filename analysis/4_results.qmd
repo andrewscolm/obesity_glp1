@@ -22,6 +22,51 @@ library(ggplot2)
 library(lubridate) # interval
 ```
 
+
+```{r}
+#| label: load-data
+#| include: false
+
+source(here("analysis", "design", "design.r"))
+
+df_tirzepatide_icb <- read_parquet(
+  here("data", "df_tirzepatide_icb.parquet")
+)
+
+df_tirzepatide_icb_strength <- read_parquet(
+  here("data", "df_tirzepatide_icb_strength.parquet")
+)
+
+df_tirzepatide_england <- read_parquet(
+  here("data", "df_tirzepatide_england.parquet")
+)
+
+df_tirzepatide_england_strength <- read_parquet(
+  here("data", "df_tirzepatide_england_strength.parquet")
+)
+
+
+df_orlistat_icb <- read_parquet(
+  here("data", "df_orlistat_icb.parquet")
+)
+
+df_orlistat_icb_strength <- read_parquet(
+  here("data", "df_orlistat_icb_strength.parquet")
+)
+
+df_orlistat_england <- read_parquet(
+  here("data", "df_orlistat_england.parquet")
+)
+
+df_orlistat_england_strength <- read_parquet(
+  here("data", "df_orlistat_england_strength.parquet")
+)
+
+
+
+```
+
+
 ## Tirzepatide prescribing per 1,000 registered patients.
 
 ### England: 
