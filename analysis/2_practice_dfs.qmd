@@ -651,6 +651,20 @@ icb_level_data <- function(drug, ...) {
     rename(icb_code = stp, icb_name = name) |>
     summarise(
       items = sum(items),
+      total_list_size = mean(total_list_size),
+      rateper1000 = items / total_list_size * 1000,
+      .by = c(month, ...)
+    )
+
+  df
+}
+
+
+england_level_data <- function(drug, ...) {
+  ## aggregate to stp level
+  df <- icb_level_data(drug, practice, ...) |>
+    summarise(
+      items = sum(items),
       total_list_size = sum(total_list_size),
       rateper1000 = items / total_list_size * 1000,
       .by = c(month, ...)
@@ -658,6 +672,9 @@ icb_level_data <- function(drug, ...) {
 
   df
 }
+
+
+df_orlistat_icb <- icb_level_data("orlistat", icb_code, icb_name, regional_team)
 
 
 df_orlistat_icb_strength <- icb_level_data(
@@ -668,11 +685,9 @@ df_orlistat_icb_strength <- icb_level_data(
   strength
 )
 
-df_orlistat_icb <- icb_level_data("orlistat", icb_code, icb_name, regional_team)
+df_orlistat_england <- england_level_data("orlistat")
 
-df_orlistat_england <- icb_level_data("orlistat")
-
-df_orlistat_england_strength <- icb_level_data("orlistat", strength)
+df_orlistat_england_strength <- england_level_data("orlistat", strength)
 
 
 df_tirzepatide_icb_strength <- icb_level_data(
@@ -690,9 +705,9 @@ df_tirzepatide_icb <- icb_level_data(
   regional_team
 )
 
-df_tirzepatide_england <- icb_level_data("tirzepatide")
+df_tirzepatide_england <- england_level_data("tirzepatide")
 
-df_tirzepatide_england_strength <- icb_level_data("tirzepatide", strength)
+df_tirzepatide_england_strength <- england_level_data("tirzepatide", strength)
 ```
 
 ```{r}

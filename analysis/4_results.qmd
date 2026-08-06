@@ -28,6 +28,7 @@ library(lubridate) # interval
 #| include: false
 
 source(here("analysis", "design", "design.r"))
+source(here("analysis", "functions", "utils.r"))
 
 df_tirzepatide_icb <- read_parquet(
   here("data", "df_tirzepatide_icb.parquet")
@@ -71,7 +72,7 @@ df_orlistat_england_strength <- read_parquet(
 
 ### England: 
 
-From January 2023 to December 2025 the number of patients registered to a practice in England increased from 56,941,117 to 63,936,682. The number of GP practices dropped from 6,437 to 6,250. The NICE diabetes guidance was introduced in October 2023, and the first observed prescribing was February 2024 (Figure 1A). In the initial month after the NICE obesity guideline there was a temporary drop in tirzepatide prescribing before the prescribing rate increased. We saw transient dips in prescribing rate in August 2025 and October / November 2025. In December 2025 the prescribing rate was 4.59 per 1,000 registered patients.
+From `{r} formatted_date(start_date)` to `{r} formatted_date(end_date)` the number of patients registered to a practice in England increased from `{r} formatted_num(df_tirzepatide_england |> filter(month==start_date) |> pull(total_list_size))` to 63,936,682. The number of GP practices dropped from 6,437 to 6,250. The NICE diabetes guidance was introduced in October 2023, and the first observed prescribing was February 2024 (Figure 1A). In the initial month after the NICE obesity guideline there was a temporary drop in tirzepatide prescribing before the prescribing rate increased. We saw transient dips in prescribing rate in August 2025 and October / November 2025. In December 2025 the prescribing rate was 4.59 per 1,000 registered patients.
 
 We saw a similar pattern for tirzepatide prescribing per 1,000 QOF obesity register size (Figure 1B). In December 2025 the prescribing rate was 41.2 per 1,000 QOF obesity register size. The number of registered patients within an ICB was well correlated with the total ICB QOF obesity register size (Supplementary Figure S1).
 

@@ -16,3 +16,12 @@ filter_like_or_in <- function(query, con, column, values) {
     dplyr::filter(query, .data[[column]] %in% !!values)
   }
 }
+
+
+## format date
+formatted_date <- function(date) {
+  format(as.Date(date), format = "%B %Y")
+}
+formatted_num <- function(number) {
+  format(number, big.mark = ",", scientific = FALSE)
+}
