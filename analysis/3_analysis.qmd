@@ -46,11 +46,20 @@ df_tirzepatide_icb_strength <- read_parquet(
   here("data", "df_tirzepatide_icb_strength.parquet")
 )
 
+df_tirzepatide_england <- read_parquet(
+  here("data", "df_tirzepatide_england.parquet")
+)
+
+df_tirzepatide_england_strength <- read_parquet(
+  here("data", "df_tirzepatide_england_strength.parquet")
+)
+
+
 df_orlistat_icb <- read_parquet(
   here("data", "df_orlistat_icb.parquet")
 )
 
-df_orlistat_icb_strengthd <- read_parquet(
+df_orlistat_icb_strength <- read_parquet(
   here("data", "df_orlistat_icb_strength.parquet")
 )
 
