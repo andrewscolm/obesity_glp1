@@ -9,6 +9,7 @@ con <- connect_bq()
 source(here::here("analysis", "design", "design.r"))
 source(here::here("analysis", "functions", "utils.r"))
 
+fs::dir_create(here("data"))
 
 df_ccgs <- tbl(con, "ccgs") |>
   collect()

@@ -29,6 +29,14 @@ library(arrow)
 source(here("analysis", "design", "design.r"))
 source(here("analysis", "functions", "functions.r"))
 source(here("analysis", "functions", "utils.r"))
+
+## create save folder
+fs::dir_create(here("data"))
+fs::dir_create(here(
+  "output",
+  "icb",
+  "nonprescribing"
+))
 ```
 
 ```{r}
@@ -89,8 +97,9 @@ df_stp_names <- read_parquet(
 ```{r}
 #| label: tirzepatide_clean
 #| include: false
-df_tirzepatide_practice <- df_tirzepatide_practice |> 
-  filter(grepl("0.6ml",bnf_name)) |> 
+
+df_tirzepatide_practice <- df_tirzepatide_practice |>
+  filter(grepl("0.6ml", bnf_name)) |>
   mutate(
     strength = gsub("[^0-9/.]", "", bnf_name),
     strength = gsub("2.4", "", strength),
@@ -104,7 +113,7 @@ df_tirzepatide_practice <- df_tirzepatide_practice |>
 #| label: orlistat_clean
 #| include: false
 df_orlistat_practice <- df_orlistat_practice |>
-  filter(grepl("120mg",bnf_name)) |> 
+  filter(grepl("120mg", bnf_name)) |>
   mutate(
     strength = gsub("\\D", "", bnf_name),
     strength = glue("{strength}mg")
@@ -676,7 +685,12 @@ england_level_data <- function(drug, ...) {
 }
 
 
-df_orlistat_icb <- england_level_data("orlistat", icb_code, icb_name, regional_team)
+df_orlistat_icb <- england_level_data(
+  "orlistat",
+  icb_code,
+  icb_name,
+  regional_team
+)
 
 
 df_orlistat_icb_strength <- england_level_data(
@@ -727,20 +741,32 @@ df_tirzepatide_icb_strength |>
   filter(n != df_tirzepatide_icb_strength |> distinct(strength) |> nrow())
 ```
 
+```{r}
+#| label: qof_datasets
+#| include: false
+
+df_qof_ob <- read_csv(here::here("data", "qof", "prevalence.csv"))
+
+df_qof_region <- read_csv(here::here("data", "qof", "geography.csv"))
+```
+
+
 
 ```{r}
 #| label: practices_counts
 #| include: false
 
-df_practice_counts <- combine_data("tirzepatide") |> filter(strength=="5mg / 0.6ml") |> count(month)
+df_practice_counts <- combine_data("tirzepatide") |>
+  filter(strength == "5mg / 0.6ml") |>
+  count(month)
 ##check is the same for orlistat
-df_practice_counts_2 <- combine_data("orlistat")|> filter(strength=="120mg") |> count(month)
+df_practice_counts_2 <- combine_data("orlistat") |>
+  filter(strength == "120mg") |>
+  count(month)
 
-identical(df_practice_counts,df_practice_counts_2)
+identical(df_practice_counts, df_practice_counts_2)
 
 all_practices <- combine_data("tirzepatide") |> distinct(practice) |> nrow()
-
-
 ```
 
 
