@@ -25,3 +25,11 @@ formatted_date <- function(date) {
 formatted_num <- function(number) {
   format(number, big.mark = ",", scientific = FALSE)
 }
+
+formatted_decimal <- function(number) {
+  format(number, big.mark = ",", scientific = FALSE, digits = 3)
+}
+
+formatted_decimal <- function(number) {
+  format(number, big.mark = ",", scientific = FALSE, digits = 3)
+}
