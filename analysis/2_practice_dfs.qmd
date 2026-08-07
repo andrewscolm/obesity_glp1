@@ -89,7 +89,8 @@ df_stp_names <- read_parquet(
 ```{r}
 #| label: tirzepatide_clean
 #| include: false
-df_tirzepatide_practice <- df_tirzepatide_practice %>%
+df_tirzepatide_practice <- df_tirzepatide_practice |> 
+  filter(grepl("0.6ml",bnf_name)) |> 
   mutate(
     strength = gsub("[^0-9/.]", "", bnf_name),
     strength = gsub("2.4", "", strength),
@@ -103,6 +104,7 @@ df_tirzepatide_practice <- df_tirzepatide_practice %>%
 #| label: orlistat_clean
 #| include: false
 df_orlistat_practice <- df_orlistat_practice |>
+  filter(grepl("120mg",bnf_name)) |> 
   mutate(
     strength = gsub("\\D", "", bnf_name),
     strength = glue("{strength}mg")
@@ -644,7 +646,7 @@ df_retired_months <- df_retired_all |>
 #| label: icb-level
 #| include: false
 
-icb_level_data <- function(drug, ...) {
+practice_level_data <- function(drug, ...) {
   ## aggregate to stp level
   df <- combine_data(drug) |>
     left_join(df_stp_names, by = join_by(stp == code)) |>
@@ -653,7 +655,7 @@ icb_level_data <- function(drug, ...) {
       items = sum(items),
       total_list_size = mean(total_list_size),
       rateper1000 = items / total_list_size * 1000,
-      .by = c(month, ...)
+      .by = c(month, practice, ...)
     )
 
   df
@@ -662,7 +664,7 @@ icb_level_data <- function(drug, ...) {
 
 england_level_data <- function(drug, ...) {
   ## aggregate to stp level
-  df <- icb_level_data(drug, practice, ...) |>
+  df <- practice_level_data(drug, ...) |>
     summarise(
       items = sum(items),
       total_list_size = sum(total_list_size),
@@ -674,10 +676,10 @@ england_level_data <- function(drug, ...) {
 }
 
 
-df_orlistat_icb <- icb_level_data("orlistat", icb_code, icb_name, regional_team)
+df_orlistat_icb <- england_level_data("orlistat", icb_code, icb_name, regional_team)
 
 
-df_orlistat_icb_strength <- icb_level_data(
+df_orlistat_icb_strength <- england_level_data(
   "orlistat",
   icb_code,
   icb_name,
@@ -690,7 +692,7 @@ df_orlistat_england <- england_level_data("orlistat")
 df_orlistat_england_strength <- england_level_data("orlistat", strength)
 
 
-df_tirzepatide_icb_strength <- icb_level_data(
+df_tirzepatide_icb_strength <- england_level_data(
   "tirzepatide",
   icb_code,
   icb_name,
@@ -698,7 +700,7 @@ df_tirzepatide_icb_strength <- icb_level_data(
   strength
 )
 
-df_tirzepatide_icb <- icb_level_data(
+df_tirzepatide_icb <- england_level_data(
   "tirzepatide",
   icb_code,
   icb_name,
@@ -725,9 +727,36 @@ df_tirzepatide_icb_strength |>
   filter(n != df_tirzepatide_icb_strength |> distinct(strength) |> nrow())
 ```
 
+
+```{r}
+#| label: practices_counts
+#| include: false
+
+df_practice_counts <- combine_data("tirzepatide") |> filter(strength=="5mg / 0.6ml") |> count(month)
+##check is the same for orlistat
+df_practice_counts_2 <- combine_data("orlistat")|> filter(strength=="120mg") |> count(month)
+
+identical(df_practice_counts,df_practice_counts_2)
+
+all_practices <- combine_data("tirzepatide") |> distinct(practice) |> nrow()
+
+
+```
+
+
 ```{r}
 #| label: save_dfs
 #| include: false
+
+write_rds(
+  all_practices,
+  here("data", "all_practices.parquet")
+)
+
+write_parquet(
+  df_practice_counts,
+  here("data", "df_practice_counts.parquet")
+)
 
 write_parquet(
   df_tirzepatide_england,

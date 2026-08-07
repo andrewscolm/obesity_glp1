@@ -32,3 +32,5 @@ __pycache__/
 # r history
 .Rhistory
 .RData
+analysis/4_results_files/libs/*/**
+analysis/4_results.html
