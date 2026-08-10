@@ -30,6 +30,7 @@ source(here("analysis", "design", "design.r"))
 source(here("analysis", "functions", "functions.r"))
 source(here("analysis", "functions", "utils.r"))
 
+
 ## create save folder
 fs::dir_create(here("data"))
 fs::dir_create(here(
@@ -40,10 +41,10 @@ fs::dir_create(here(
 ```
 
 ```{r}
-#| label: run-opr
-#| eval: false
-
-source(here("analysis", "opr_extract.r"))
+#| label: run-opr-and-qof
+#| eval: true
+source(here("analysis", "0_get-qof.r"))
+source(here("analysis", "1_opr_extract.r"))
 ```
 
 ```{r}
@@ -732,22 +733,13 @@ df_tirzepatide_england_strength <- england_level_data("tirzepatide", strength)
 
 ### check each stp for each month has a row for each strength and list size is consistent (tibble should be empty)
 df_orlistat_icb_strength |>
-  count(month, stp, total_list_size) |>
+  count(month, icb_code, total_list_size) |>
   filter(n != df_orlistat_icb_strength |> distinct(strength) |> nrow())
 
 ### check each stp for each month has a row for each strength and list size is consistent (tibble should be empty)
 df_tirzepatide_icb_strength |>
-  count(month, stp, total_list_size) |>
+  count(month, icb_code, total_list_size) |>
   filter(n != df_tirzepatide_icb_strength |> distinct(strength) |> nrow())
-```
-
-```{r}
-#| label: qof_datasets
-#| include: false
-
-df_qof_ob <- read_csv(here::here("data", "qof", "prevalence.csv"))
-
-df_qof_region <- read_csv(here::here("data", "qof", "geography.csv"))
 ```
 
 
@@ -771,12 +763,25 @@ all_practices <- combine_data("tirzepatide") |> distinct(practice) |> nrow()
 
 
 ```{r}
+#| label: qof_datasets
+#| include: false
+
+df_qof_ob <- read_csv(here::here("data", "qof", "prevalence.csv"))
+
+df_qof_region <- read_csv(here::here("data", "qof", "geography.csv"))
+
+###
+```
+
+
+
+```{r}
 #| label: save_dfs
 #| include: false
 
 write_rds(
   all_practices,
-  here("data", "all_practices.parquet")
+  here("data", "all_practices.rds")
 )
 
 write_parquet(
