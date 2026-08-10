@@ -29,7 +29,7 @@ source(here("analysis", "functions", "utils.r"))
 #| eval: false
 
 quarto::quarto_render(
-  input = "analysis/practice_dfs.qmd",
+  input = "analysis/2_practice_dfs.qmd",
 )
 ```
 
@@ -88,6 +88,13 @@ df_qof_icbs <- df_qof_region %>%
 ```{r}
 #| label: plot-orlistat
 #| include: false
+
+fs::dir_create(here(
+  "output",
+  "icb",
+  "orlistat"
+))
+
 plot_orlistat_icb <- df_orlistat_icb_strength %>%
   ggplot(aes(x = month, y = rateper1000, color = strength)) +
   facet_wrap(vars(icb_name)) +

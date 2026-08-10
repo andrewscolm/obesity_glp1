@@ -42,7 +42,7 @@ fs::dir_create(here(
 
 ```{r}
 #| label: run-opr-and-qof
-#| eval: true
+#| eval: false
 source(here("analysis", "0_get-qof.r"))
 source(here("analysis", "1_opr_extract.r"))
 ```
