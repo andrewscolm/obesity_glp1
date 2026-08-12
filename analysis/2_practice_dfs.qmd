@@ -6,6 +6,13 @@ format:
     mainfont: "Arial"
 ---
 
+This file blaah blah blah
+
+df_included_practices <- included_practices() 
+
+
+
+
 ```{r}
 #| label: load-packages
 #| include: false
@@ -29,13 +36,22 @@ library(arrow)
 source(here("analysis", "design", "design.r"))
 source(here("analysis", "functions", "functions.r"))
 source(here("analysis", "functions", "utils.r"))
+
+
+## create save folder
+fs::dir_create(here("data"))
+fs::dir_create(here(
+  "output",
+  "icb",
+  "nonprescribing"
+))
 ```
 
 ```{r}
-#| label: run-opr
+#| label: run-opr-and-qof
 #| eval: false
-
-source(here("analysis", "opr_extract.r"))
+source(here("analysis", "0_get-qof.r"))
+source(here("analysis", "1_opr_extract.r"))
 ```
 
 ```{r}
@@ -83,14 +99,19 @@ df_region_names <- read_parquet(
 df_stp_names <- read_parquet(
   here("data", "df_stp_names.parquet")
 )
+
+df_qof_ob <- read_csv(here::here("data", "qof", "prevalence.csv")) |>
+  filter(year == "2024-25") |>
+  select(practice_code, register)
 ```
 
 
 ```{r}
 #| label: tirzepatide_clean
 #| include: false
-df_tirzepatide_practice <- df_tirzepatide_practice |> 
-  filter(grepl("0.6ml",bnf_name)) |> 
+
+df_tirzepatide_practice <- df_tirzepatide_practice |>
+  filter(grepl("0.6ml", bnf_name)) |>
   mutate(
     strength = gsub("[^0-9/.]", "", bnf_name),
     strength = gsub("2.4", "", strength),
@@ -104,7 +125,7 @@ df_tirzepatide_practice <- df_tirzepatide_practice |>
 #| label: orlistat_clean
 #| include: false
 df_orlistat_practice <- df_orlistat_practice |>
-  filter(grepl("120mg",bnf_name)) |> 
+  filter(grepl("120mg", bnf_name)) |>
   mutate(
     strength = gsub("\\D", "", bnf_name),
     strength = glue("{strength}mg")
@@ -641,6 +662,42 @@ df_retired_months <- df_retired_all |>
   left_join(df_retired_any)
 ```
 
+```{r}
+#| label: qof_datasets
+#| include: false
+
+df_qof_region <- read_csv(here::here("data", "qof", "geography.csv"))
+
+
+df_included_practices <- included_practices()
+
+df_included_practices_qof_period <- df_included_practices |>
+  filter(month >= start_date_qof, month <= end_date_qof)
+
+df_included_practices_qof_period_n <- df_included_practices_qof_period |> nrow()
+## 73218
+
+df_included_practices_qof <- df_included_practices_qof_period |>
+  inner_join(df_qof_ob, by = join_by(code == practice_code))
+
+
+df_included_practices_qof |> nrow() #73166
+
+### practice_months dropped (52)
+df_included_practices_qof_period_n - df_included_practices_qof |> nrow()
+
+### dropped practices (12)
+df_included_practices_qof_dropped <- df_included_practices_qof_period |>
+  anti_join(df_qof_ob, by = join_by(code == practice_code)) |>
+  distinct(code, stp_id)
+
+## dropped from included practices
+df_included_practices_qof_period |>
+  inner_join(df_included_practices_qof_dropped) |>
+  distinct(code, stp_id)
+### so we cannot aggregate the QOF data and then join. We will have to join on practice first.
+```
+
 
 ```{r}
 #| label: icb-level
@@ -662,54 +719,80 @@ practice_level_data <- function(drug, ...) {
 }
 
 
-england_level_data <- function(drug, ...) {
+england_level_data <- function(df_in, drug, ...) {
   ## aggregate to stp level
-  df <- practice_level_data(drug, ...) |>
+  df <- df_in |>
     summarise(
       items = sum(items),
       total_list_size = sum(total_list_size),
       rateper1000 = items / total_list_size * 1000,
       .by = c(month, ...)
     )
+}
 
-  df
+practice_level_data_qof <- function(df_in, drug, ...) {
+  ## aggregate to stp level
+  df <- df_in |>
+    filter(month >= start_date_qof, month <= end_date_qof) |>
+    inner_join(
+      df_qof_ob,
+      by = join_by(practice == practice_code)
+    ) |>
+    mutate(rateper1000register = items / register * 1000) |>
+    arrange(month, practice, ...)
 }
 
 
-df_orlistat_icb <- england_level_data("orlistat", icb_code, icb_name, regional_team)
+england_level_data_qof <- function(df_in, drug, ...) {
+  ## aggregate to stp level
+  df <- df_in |>
+    summarise(
+      items = sum(items),
+      total_list_size = sum(total_list_size),
+      register = sum(register),
+      rateper1000 = items / total_list_size * 1000,
+      rateper1000register = items / register * 1000,
+      .by = c(month, ...)
+    )
+}
 
 
-df_orlistat_icb_strength <- england_level_data(
-  "orlistat",
-  icb_code,
-  icb_name,
-  regional_team,
-  strength
-)
+outputs_func <- function(drug, ...) {
+  df1 <- practice_level_data(drug, icb_code, icb_name, regional_team, ...)
+  df1_qof <- practice_level_data_qof(
+    df1,
+    drug,
+    icb_code,
+    icb_name,
+    regional_team,
+    ...
+  )
+  df2 <- england_level_data(df1, drug, icb_code, icb_name, regional_team, ...)
+  df2_qof <- england_level_data_qof(
+    df1_qof,
+    drug,
+    icb_code,
+    icb_name,
+    regional_team,
+    ...
+  )
+  df3 <- england_level_data(df1, drug, ...)
+  df3_qof <- england_level_data_qof(df1_qof, drug, ...)
 
-df_orlistat_england <- england_level_data("orlistat")
+  list(
+    practice = df1,
+    icb = df2,
+    england = df3,
+    practice_qof = df1_qof,
+    icb_qof = df2_qof,
+    england_qof = df3_qof
+  )
+}
 
-df_orlistat_england_strength <- england_level_data("orlistat", strength)
-
-
-df_tirzepatide_icb_strength <- england_level_data(
-  "tirzepatide",
-  icb_code,
-  icb_name,
-  regional_team,
-  strength
-)
-
-df_tirzepatide_icb <- england_level_data(
-  "tirzepatide",
-  icb_code,
-  icb_name,
-  regional_team
-)
-
-df_tirzepatide_england <- england_level_data("tirzepatide")
-
-df_tirzepatide_england_strength <- england_level_data("tirzepatide", strength)
+tirzepatide_dfs <- outputs_func("tirzepatide")
+tirzepatide_strength_dfs <- outputs_func("tirzepatide", strength)
+orlistat_dfs <- outputs_func("orlistat")
+orlistat_strength_dfs <- outputs_func("orlistat", strength)
 ```
 
 ```{r}
@@ -717,40 +800,54 @@ df_tirzepatide_england_strength <- england_level_data("tirzepatide", strength)
 #| eval: false
 
 ### check each stp for each month has a row for each strength and list size is consistent (tibble should be empty)
-df_orlistat_icb_strength |>
-  count(month, stp, total_list_size) |>
-  filter(n != df_orlistat_icb_strength |> distinct(strength) |> nrow())
+orlistat_strength_dfs$icb |>
+  count(month, icb_code, total_list_size) |>
+  filter(n != orlistat_strength_dfs$icb |> distinct(strength) |> nrow())
 
 ### check each stp for each month has a row for each strength and list size is consistent (tibble should be empty)
-df_tirzepatide_icb_strength |>
-  count(month, stp, total_list_size) |>
-  filter(n != df_tirzepatide_icb_strength |> distinct(strength) |> nrow())
+tirzepatide_strength_dfs$icb |>
+  count(month, icb_code, total_list_size) |>
+  filter(n != tirzepatide_strength_dfs$icb |> distinct(strength) |> nrow())
 ```
+
 
 
 ```{r}
 #| label: practices_counts
-#| include: false
 
-df_practice_counts <- combine_data("tirzepatide") |> filter(strength=="5mg / 0.6ml") |> count(month)
+df_practice_counts <- tirzepatide_dfs$practice |>
+  count(month)
 ##check is the same for orlistat
-df_practice_counts_2 <- combine_data("orlistat")|> filter(strength=="120mg") |> count(month)
+df_practice_counts_2 <- orlistat_dfs$practice |>
+  count(month)
 
-identical(df_practice_counts,df_practice_counts_2)
+identical(df_practice_counts, df_practice_counts_2)
 
-all_practices <- combine_data("tirzepatide") |> distinct(practice) |> nrow()
+## check strengths
+df_practice_counts <- tirzepatide_strength_dfs$practice |>
+  filter(strength == "5mg / 0.6ml") |>
+  count(month)
+##check is the same for orlistat
+df_practice_counts_2 <- orlistat_strength_dfs$practice |>
+  count(month)
 
+identical(df_practice_counts, df_practice_counts_2)
 
+all_practices <- tirzepatide_dfs$practice |> distinct(practice) |> nrow()
 ```
+
+
+
 
 
 ```{r}
 #| label: save_dfs
-#| include: false
+#| eval: false
 
+# number of practices
 write_rds(
   all_practices,
-  here("data", "all_practices.parquet")
+  here("data", "all_practices.rds")
 )
 
 write_parquet(
@@ -758,44 +855,97 @@ write_parquet(
   here("data", "df_practice_counts.parquet")
 )
 
+# tirzepatide per 1000 (England, icb, practices)
 write_parquet(
-  df_tirzepatide_england,
+  tirzepatide_dfs$england,
   here("data", "df_tirzepatide_england.parquet")
 )
 
 write_parquet(
-  df_tirzepatide_england_strength,
+  tirzepatide_strength_dfs$england,
   here("data", "df_tirzepatide_england_strength.parquet")
 )
 
 write_parquet(
-  df_tirzepatide_icb,
+  tirzepatide_dfs$icb,
   here("data", "df_tirzepatide_icb.parquet")
 )
 
 write_parquet(
-  df_tirzepatide_icb_strength,
+  tirzepatide_strength_dfs$icb,
   here("data", "df_tirzepatide_icb_strength.parquet")
 )
 
+write_parquet(
+  tirzepatide_dfs$practice,
+  here("data", "df_tirzepatide_practice.parquet")
+)
 
 write_parquet(
-  df_orlistat_england,
+  tirzepatide_strength_dfs$practice,
+  here("data", "df_tirzepatide_practice_strength.parquet")
+)
+
+
+# orlistat per 1000 (England, icb, practices)
+write_parquet(
+  orlistat_dfs$england,
   here("data", "df_orlistat_england.parquet")
 )
 
 write_parquet(
-  df_orlistat_england_strength,
+  orlistat_strength_dfs$england,
   here("data", "df_orlistat_england_strength.parquet")
 )
 
 write_parquet(
-  df_orlistat_icb,
+  orlistat_dfs$icb,
   here("data", "df_orlistat_icb.parquet")
 )
 
 write_parquet(
-  df_orlistat_icb_strength,
+  orlistat_strength_dfs$icb,
   here("data", "df_orlistat_icb_strength.parquet")
+)
+
+write_parquet(
+  orlistat_dfs$practice,
+  here("data", "df_orlistat_practice.parquet")
+)
+
+write_parquet(
+  orlistat_strength_dfs$practice,
+  here("data", "df_orlistat_practice_strength.parquet")
+)
+
+# tirzepatide per 1000 QOF Obesity register (England, icb, practices)
+write_parquet(
+  tirzepatide_dfs$england_qof,
+  here("data", "df_tirzepatide_england_qof.parquet")
+)
+
+write_parquet(
+  tirzepatide_strength_dfs$england_qof,
+  here("data", "df_tirzepatide_england_strength_qof.parquet")
+)
+
+write_parquet(
+  tirzepatide_dfs$icb_qof,
+  here("data", "df_tirzepatide_icb_qof.parquet")
+)
+
+write_parquet(
+  tirzepatide_strength_dfs$icb_qof,
+  here("data", "df_tirzepatide_icb_strength_qof.parquet")
+)
+
+write_parquet(
+  tirzepatide_dfs$practice_qof,
+  here("data", "df_tirzepatide_practice_qof.parquet")
+)
+
+write_parquet(
+  tirzepatide_strength_dfs$practice_qof,
+  here("data", "df_tirzepatide_practice_strength_qof.parquet")
 )
 ```

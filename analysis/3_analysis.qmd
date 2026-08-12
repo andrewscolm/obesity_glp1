@@ -29,7 +29,7 @@ source(here("analysis", "functions", "utils.r"))
 #| eval: false
 
 quarto::quarto_render(
-  input = "analysis/practice_dfs.qmd",
+  input = "analysis/2_practice_dfs.qmd",
 )
 ```
 
@@ -70,24 +70,15 @@ df_qof_region <- read_csv(here::here("data", "qof", "geography.csv"))
 
 
 ```{r}
-#| label: add QOF data
-
-df_qof_icbs <- df_qof_region %>%
-  filter(year == "2024-25") %>%
-  group_by(icb_ods_code) %>%
-  summarise(icb_ods_code = last(icb_ods_code), icb_name = last(icb_name)) %>%
-  mutate(
-    icb_name = gsub("Integrated Care Board", "ICB", icb_name),
-    # icb_name = gsub("ICB","",icb_name),
-    #   icb_name = gsub("NHS ","",icb_name),
-    icb_name = str_wrap(icb_name, width = 33)
-  )
-```
-
-
-```{r}
 #| label: plot-orlistat
 #| include: false
+
+fs::dir_create(here(
+  "output",
+  "icb",
+  "orlistat"
+))
+
 plot_orlistat_icb <- df_orlistat_icb_strength %>%
   ggplot(aes(x = month, y = rateper1000, color = strength)) +
   facet_wrap(vars(icb_name)) +

@@ -17,78 +17,81 @@ qof_sources <- list(
       prevalence = "PREVALENCE_2324.csv",
       geography = "MAPPING_NHS_GEOGRAPHIES_2324.csv"
     )
-  ),
-  "2022-23" = list(
-    url = "https://files.digital.nhs.uk/32/40B931/QOF%202022-23%20Raw%20data%20.csv%20files.zip",
-    datasets = list(
-      prevalence = "PREVALENCE_2223.csv",
-      geography = "MAPPING_NHS_GEOGRAPHIES_2223.csv"
-    )
-  ),
-  "2021-22" = list(
-    url = "https://files.digital.nhs.uk/90/6F833F/QOF_2122_V2.zip",
-    datasets = list(
-      prevalence = "PREVALENCE_2122_V2.csv",
-      geography = "MAPPING_NHS_GEOGRAPHIES_2122.csv"
-    )
-  ),
-  "2020-21" = list(
-    url = "https://files.digital.nhs.uk/AC/3C964F/QOF2021_v2.zip",
-    datasets = list(
-      prevalence = "PREVALENCE_2021_v2.csv",
-      geography = "MAPPING_NHS_GEOGRAPHIES_2021.csv"
-    )
-  ),
-  "2019-20" = list(
-    url = "https://files.digital.nhs.uk/E2/BF16AA/QOF_1920.zip",
-    datasets = list(
-      prevalence = "PREVALENCE_1920.csv",
-      geography = "MAPPING_NHS_GEOGRAPHIES_1920.csv"
-    )
   )
-  # "2018-19" = list(
-  #   url = "https://files.digital.nhs.uk/A8/491BAC/QOF_1819_v2.zip",
-  #   datasets = list(
-  #     prevalence = "PREVALENCE_1819_v2.csv",
-  #     geography = "ORGANISATION_REFERENCE_1819_v2.csv"
-  #   )
-  # ),
-  # "2017-18" = list(
-  #   url = "https://files.digital.nhs.uk/72/CB2869/qof-1718-csv.zip",
-  #   datasets = list(
-  #     prevalence = "PREVALENCE.csv",
-  #     geography = "ORGANISATION_REFERENCE.csv"
-  #   )
-  # ),
-  # "2016-17" = list(
-  #   url = "https://files.digital.nhs.uk/zip/p/i/qof-1617-csv.zip",
-  #   datasets = list(
-  #     prevalence = "PREVALENCE.csv",
-  #     geography = "ORGANISATION_REFERENCE.csv"
-  #   )
-  # ),
-  # "2015-16" = list(
-  #   url = "https://files.digital.nhs.uk/publicationimport/pub22xxx/pub22266/qof-1516-csv.zip",
-  #   datasets = list(
-  #     prevalence = "PREVALENCE.csv",
-  #     geography = "ORGANISATION_REFERENCE.csv"
-  #   )
-  # ),
-  # "2014-15" = list(
-  #   url = "https://files.digital.nhs.uk/publicationimport/pub18xxx/pub18887/qof-1415-csvfiles-v2.zip",
-  #   datasets = list(
-  #     prevalence = "PREVALENCE_BY_PRAC_v2.csv",
-  #     geography = "PRAC_CONTROL.csv"
-  #   )
-  # ),
-  # "2013-14" = list(
-  #   url = "https://files.digital.nhs.uk/publicationimport/pub15xxx/pub15751/qof-1314-csvfilescqrsdata.zip",
-  #   datasets = list(
-  #     prevalence = "prevalencebyprac.csv",
-  #     geography = "Prac_Control.csv"
-  #   )
-  # )
 )
+
+# ,
+# "2022-23" = list(
+#   url = "https://files.digital.nhs.uk/32/40B931/QOF%202022-23%20Raw%20data%20.csv%20files.zip",
+#   datasets = list(
+#     prevalence = "PREVALENCE_2223.csv",
+#     geography = "MAPPING_NHS_GEOGRAPHIES_2223.csv"
+#   )
+# ),
+# "2021-22" = list(
+#   url = "https://files.digital.nhs.uk/90/6F833F/QOF_2122_V2.zip",
+#   datasets = list(
+#     prevalence = "PREVALENCE_2122_V2.csv",
+#     geography = "MAPPING_NHS_GEOGRAPHIES_2122.csv"
+#   )
+# ),
+# "2020-21" = list(
+#   url = "https://files.digital.nhs.uk/AC/3C964F/QOF2021_v2.zip",
+#   datasets = list(
+#     prevalence = "PREVALENCE_2021_v2.csv",
+#     geography = "MAPPING_NHS_GEOGRAPHIES_2021.csv"
+#   )
+# ),
+# "2019-20" = list(
+#   url = "https://files.digital.nhs.uk/E2/BF16AA/QOF_1920.zip",
+#   datasets = list(
+#     prevalence = "PREVALENCE_1920.csv",
+#     geography = "MAPPING_NHS_GEOGRAPHIES_1920.csv"
+#   )
+# )
+# "2018-19" = list(
+#   url = "https://files.digital.nhs.uk/A8/491BAC/QOF_1819_v2.zip",
+#   datasets = list(
+#     prevalence = "PREVALENCE_1819_v2.csv",
+#     geography = "ORGANISATION_REFERENCE_1819_v2.csv"
+#   )
+# ),
+# "2017-18" = list(
+#   url = "https://files.digital.nhs.uk/72/CB2869/qof-1718-csv.zip",
+#   datasets = list(
+#     prevalence = "PREVALENCE.csv",
+#     geography = "ORGANISATION_REFERENCE.csv"
+#   )
+# ),
+# "2016-17" = list(
+#   url = "https://files.digital.nhs.uk/zip/p/i/qof-1617-csv.zip",
+#   datasets = list(
+#     prevalence = "PREVALENCE.csv",
+#     geography = "ORGANISATION_REFERENCE.csv"
+#   )
+# ),
+# "2015-16" = list(
+#   url = "https://files.digital.nhs.uk/publicationimport/pub22xxx/pub22266/qof-1516-csv.zip",
+#   datasets = list(
+#     prevalence = "PREVALENCE.csv",
+#     geography = "ORGANISATION_REFERENCE.csv"
+#   )
+# ),
+# "2014-15" = list(
+#   url = "https://files.digital.nhs.uk/publicationimport/pub18xxx/pub18887/qof-1415-csvfiles-v2.zip",
+#   datasets = list(
+#     prevalence = "PREVALENCE_BY_PRAC_v2.csv",
+#     geography = "PRAC_CONTROL.csv"
+#   )
+# ),
+# "2013-14" = list(
+#   url = "https://files.digital.nhs.uk/publicationimport/pub15xxx/pub15751/qof-1314-csvfilescqrsdata.zip",
+#   datasets = list(
+#     prevalence = "prevalencebyprac.csv",
+#     geography = "Prac_Control.csv"
+#   )
+# )
+# )
 
 # List all files in a zip archive (helper to find correct filenames)
 list_zip_contents <- function(url) {
