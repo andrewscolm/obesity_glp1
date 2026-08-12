@@ -70,22 +70,6 @@ df_qof_region <- read_csv(here::here("data", "qof", "geography.csv"))
 
 
 ```{r}
-#| label: add QOF data
-
-df_qof_icbs <- df_qof_region %>%
-  filter(year == "2024-25") %>%
-  group_by(icb_ods_code) %>%
-  summarise(icb_ods_code = last(icb_ods_code), icb_name = last(icb_name)) %>%
-  mutate(
-    icb_name = gsub("Integrated Care Board", "ICB", icb_name),
-    # icb_name = gsub("ICB","",icb_name),
-    #   icb_name = gsub("NHS ","",icb_name),
-    icb_name = str_wrap(icb_name, width = 33)
-  )
-```
-
-
-```{r}
 #| label: plot-orlistat
 #| include: false
 
