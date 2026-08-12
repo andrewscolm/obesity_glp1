@@ -59,45 +59,48 @@ source(here("analysis", "1_opr_extract.r"))
 #| include: false
 
 #### practice level orlistat data
-df_orlistat_practice <- read_parquet(here::here("data", "df_orlistat.parquet"))
+df_orlistat_practice <- read_parquet(here::here(
+  "data",
+  "op_df_orlistat.parquet"
+))
 
 #### practice level tirzepatide data
 df_tirzepatide_practice <- read_parquet(here::here(
   "data",
-  "df_tirzepatide.parquet"
+  "op_df_tirzepatide.parquet"
 ))
 
 ### ccgs from practice
 df_ccgs <- read_parquet(here::here(
   "data",
-  "df_ccgs.parquet"
+  "op_df_ccgs.parquet"
 ))
 
 
 df_chemical_names_orlistat <- read_parquet(
-  here("data", "df_bnf_orlistat.parquet")
+  here("data", "op_df_bnf_orlistat.parquet")
 ) |>
   select(-year_month)
 
 df_chemical_names_tirzepatide <- read_parquet(
-  here("data", "df_bnf_tirzepatide.parquet")
+  here("data", "op_df_bnf_tirzepatide.parquet")
 ) |>
   select(-year_month)
 
 df_practice_open_info <- read_parquet(
-  here("data", "df_gp_practices.parquet")
+  here("data", "op_df_gp_practices.parquet")
 )
 
 df_practice_list_size <- read_parquet(
-  here("data", "df_practice_statistics.parquet")
+  here("data", "op_df_practice_statistics.parquet")
 )
 
 df_region_names <- read_parquet(
-  here("data", "df_regional_teams.parquet")
+  here("data", "op_df_regional_teams.parquet")
 )
 
 df_stp_names <- read_parquet(
-  here("data", "df_stp_names.parquet")
+  here("data", "op_df_stp_names.parquet")
 )
 
 df_qof_ob <- read_csv(here::here("data", "qof", "prevalence.csv")) |>

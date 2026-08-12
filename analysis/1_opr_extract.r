@@ -92,45 +92,45 @@ df_stp_names <- tbl(con, "stps") |>
 
 write_parquet(
   df_ccgs,
-  here("data", "df_ccgs.parquet")
+  here("data", "op_df_ccgs.parquet")
 )
 
 write_parquet(
   df_bnf_orlistat,
-  here("data", "df_bnf_orlistat.parquet")
+  here("data", "op_df_bnf_orlistat.parquet")
 )
 
 write_parquet(
   df_bnf_tirzepatide,
-  here("data", "df_bnf_tirzepatide.parquet")
+  here("data", "op_df_bnf_tirzepatide.parquet")
 )
 
 write_parquet(
   df_tirzepatide,
-  here("data", "df_tirzepatide.parquet")
+  here("data", "op_df_tirzepatide.parquet")
 )
 
 write_parquet(
   df_orlistat,
-  here("data", "df_orlistat.parquet")
+  here("data", "op_df_orlistat.parquet")
 )
 
 write_parquet(
   df_gp_practices,
-  here("data", "df_gp_practices.parquet")
+  here("data", "op_df_gp_practices.parquet")
 )
 
 write_parquet(
   df_practice_statistics,
-  here("data", "df_practice_statistics.parquet")
+  here("data", "op_df_practice_statistics.parquet")
 )
 
 write_parquet(
   df_regional_teams,
-  here("data", "df_regional_teams.parquet")
+  here("data", "op_df_regional_teams.parquet")
 )
 
 write_parquet(
   df_stp_names,
-  here("data", "df_stp_names.parquet")
+  here("data", "op_df_stp_names.parquet")
 )
