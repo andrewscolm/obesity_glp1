@@ -69,7 +69,7 @@ df_orlistat_england_strength <- read_parquet(
   here("data", "df_orlistat_england_strength.parquet")
 )
 
-all_practices <- readRDS(here("data", "all_practices"))
+all_practices <- readRDS(here("data", "all_practices.rds"))
 ```
 
 
