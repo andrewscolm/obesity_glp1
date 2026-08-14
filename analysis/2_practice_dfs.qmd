@@ -706,11 +706,38 @@ df_included_practices_qof_period |>
 #| label: icb-level
 #| include: false
 
+qof_icb_names <- df_qof_region |>
+  filter(year == "2024-25") |>
+  distinct(icb_ods_code, icb_name)
+
 practice_level_data <- function(drug, ...) {
   ## aggregate to stp level
   df <- combine_data(drug) |>
     left_join(df_stp_names, by = join_by(stp == code)) |>
-    rename(icb_code = stp, icb_name = name) |>
+    left_join(
+      qof_icb_names,
+      by = join_by(stp == icb_ods_code)
+    ) |>
+    mutate(
+      icb_code = stp,
+      icb_name = case_when(
+        name ==
+          "NHS CENTRAL EAST INTEGRATED CARE BOARD" ~ "NHS Central East Integrated Care Board",
+        name ==
+          "NHS ESSEX INTEGRATED CARE BOARD" ~ "NHS Essex Integrated Care Board",
+        name ==
+          "NHS HAMPSHIRE AND ISLE OF WIGHT INTEGRATED CARE BOARD" ~ "NHS Hampshire and Isle of Wight Integrated Care Board",
+        name ==
+          "NHS NORFOLK AND SUFFOLK INTEGRATED CARE BOARD" ~ "NHS Norfolk and Suffolk Integrated Care Board",
+        name ==
+          "NHS SURREY AND SUSSEX INTEGRATED CARE BOARD" ~ "NHS Surrey and Sussex Integrated Care Board",
+        name ==
+          "NHS THAMES VALLEY INTEGRATED CARE BOARD" ~ "NHS Thames Valley Integrated Care Board",
+        name ==
+          "NHS WEST AND NORTH LONDON INTEGRATED CARE BOARD" ~ "NHS West and North London Integrated Care Board",
+        .default = icb_name
+      )
+    ) |>
     summarise(
       items = sum(items),
       total_list_size = mean(total_list_size),
@@ -811,6 +838,48 @@ orlistat_strength_dfs$icb |>
 tirzepatide_strength_dfs$icb |>
   count(month, icb_code, total_list_size) |>
   filter(n != tirzepatide_strength_dfs$icb |> distinct(strength) |> nrow())
+
+### consistency of ICB name (compare tirzepatide_df to df_qof_region)
+qof_icb_check <- tirzepatide_dfs$practice_qof |>
+  inner_join(
+    df_qof_region |> filter(year == "2024-25"),
+    by = join_by(practice == practice_code)
+  ) |>
+  distinct(icb_name.x, icb_name.y) |>
+  reframe(
+    previous_icb = icb_name.y,
+    current_icb = icb_name.x,
+    match = str_to_title(icb_name.x) == str_to_title(icb_name.y)
+  ) |>
+  filter(match == FALSE) |>
+  arrange(current_icb)
+
+df_icb_rename <- tirzepatide_dfs$practice_qof |>
+  inner_join(
+    df_qof_region |> filter(year == "2024-25"),
+    by = join_by(practice == practice_code)
+  ) |>
+  distinct(icb_name.x, icb_name.y) |>
+  reframe(
+    previous_icb = icb_name.y,
+    current_icb = icb_name.x,
+    match = str_to_title(icb_name.x) == str_to_title(icb_name.y)
+  )
+
+
+### consistency of ICB name (internally in tirzepatide_df)
+tirzepatide_dfs$practice_qof |>
+  distinct(icb_name, practice) |>
+  add_count(practice) |>
+  filter(n > 1)
+### no practices have more than one ICB attached
+
+### check consistentcy of icb names in QOF 2024-25
+df_qof_region |>
+  filter(year == "2024-25") |>
+  distinct(icb_ods_code, icb_name) |>
+  count(icb_ods_code) |>
+  filter(n > 1)
 ```
 
 
