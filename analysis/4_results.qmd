@@ -30,10 +30,15 @@ library(arrow)
 
 source(here("analysis", "design", "design.r"))
 source(here("analysis", "functions", "utils.r"))
+source(here("analysis", "functions", "functions.r"))
 
 
 df_practice_counts <- read_parquet(
   here("data", "df_practice_counts.parquet")
+)
+
+df_tirzepatide_practice <- read_parquet(
+  here("data", "df_tirzepatide_practice.parquet")
 )
 
 df_tirzepatide_icb <- read_parquet(
@@ -69,48 +74,188 @@ df_orlistat_england_strength <- read_parquet(
   here("data", "df_orlistat_england_strength.parquet")
 )
 
+# QOF
+df_tirzepatide_england_qof <- read_parquet(
+  here("data", "df_tirzepatide_england_qof.parquet")
+)
+
+df_tirzepatide_england_strength_qof <- read_parquet(
+  here("data", "df_tirzepatide_england_strength_qof.parquet")
+)
+
+df_tirzepatide_icb_qof <- read_parquet(
+  here("data", "df_tirzepatide_icb_qof.parquet")
+)
+
+df_tirzepatide_icb_strength_qof <- read_parquet(
+  here("data", "df_tirzepatide_icb_strength_qof.parquet")
+)
+
+df_tirzepatide_practice_qof <- read_parquet(
+  here("data", "df_tirzepatide_practice_qof.parquet")
+)
+
+df_tirzepatide_practice_strength_qof <- read_parquet(
+  here("data", "df_tirzepatide_practice_strength_qof.parquet")
+)
+
 all_practices <- readRDS(here("data", "all_practices.rds"))
 ```
-
-
-## Tirzepatide prescribing per 1,000 registered patients.
-
-### England: 
-
-From `{r} formatted_date(start_date)` to `{r} formatted_date(end_date)` the number of patients registered to a practice in England increased from `{r} formatted_num(df_tirzepatide_england |> filter(month==start_date) |> pull(total_list_size))` to `{r} formatted_num(df_tirzepatide_england |> filter(month==end_date) |> pull(total_list_size))`. The number of GP practices dropped from `{r} formatted_num(df_practice_counts |> filter(month==start_date) |> pull(n))` to `{r} formatted_num(df_practice_counts |> filter(month==end_date) |> pull(n))`. The NICE diabetes guidance was introduced in October 2023, and the first observed prescribing was `{r} formatted_date(df_tirzepatide_england |> filter(items>0) |> slice_min(month) |> pull(month))` (Figure 1A). In the initial month after the NICE obesity guideline there was a temporary drop in tirzepatide prescribing before the prescribing rate increased. We saw transient dips in prescribing rate in August 2025 and October / November 2025. In `{r} formatted_date(end_date)` the prescribing rate was `{r} formatted_decimal(df_tirzepatide_england |>filter(month==end_date) |>pull(rateper1000))` per 1,000 registered patients.
-
-We saw a similar pattern for tirzepatide prescribing per 1,000 QOF obesity register size (Figure 1B). In `{r} formatted_date(end_date)` the prescribing rate was 41.2 per 1,000 QOF obesity register size. The number of registered patients within an ICB was well correlated with the total ICB QOF obesity register size (Supplementary Figure S1).   
 
 
 ```{r}
 #| label: icb-stats
 #| include: false
 
+decreases <- df_tirzepatide_icb %>%
+  arrange(icb_name, month) %>%
+  group_by(icb_name) %>%
+  mutate(previous_rate = lag(rateper1000)) %>%
+  filter(rateper1000 <= previous_rate) %>%
+  ungroup() |>
+  filter(month >= as.Date("2025-01-01"), month <= as.Date("2025-03-01")) |>
+  distinct(icb_name)
+
+no_drop <- df_tirzepatide_icb |> anti_join(decreases) |> distinct(icb_name)
+
+
 df_min_months <- df_tirzepatide_icb |>
   filter(items > 0) |>
   slice_min(month, by = icb_name)
 
 max_month <- df_min_months |> slice_max(month) |> distinct(month) |> pull()
-
+max_month_names <- df_min_months |> slice_max(month) |> pull(icb_name)
 min_month <- df_min_months |> slice_min(month) |> distinct(month) |> pull()
-
+min_month_n <- df_min_months |> slice_min(month) |> nrow()
 #### min and max prescribing rate at study end
-df_rateper1000_min <- df_tirzepatide_icb |>
-  filter(month == end_date) |>
-  slice_min(rateper1000)
-df_rateper1000_max <- df_tirzepatide_icb |>
-  filter(month == end_date) |>
-  slice_max(rateper1000)
+min_max <- function(df, rate, end_month) {
+  df_end <- df |>
+    filter(month == end_month)
 
-#### min and max prescribing rate of orlistat at study end
-df_orlistat_rateper1000_min <- df_orlistat_icb |>
-  filter(month == end_date) |>
-  slice_min(rateper1000)
-df_orlistat_rateper1000_max <- df_orlistat_icb |>
-  filter(month == end_date) |>
-  slice_max(rateper1000)
+  min <- df_end |>
+    slice_min(.data[[rate]]) |>
+    mutate("{rate}" := formatted_decimal(.data[[rate]]))
+
+  max <- df_end |>
+    slice_max(.data[[rate]]) |>
+    mutate("{rate}" := formatted_decimal(.data[[rate]]))
+
+  list(
+    min = min,
+    max = max
+  )
+}
+
+
+min_max_tirzepatide <- min_max(df_tirzepatide_icb, "rateper1000", end_date)
+min_max_tirzepatide_qof <- min_max(
+  df_tirzepatide_icb_qof,
+  "rateper1000register",
+  end_date_qof
+)
+min_max_orlistat <- min_max(df_orlistat_icb, "rateper1000", end_date)
 ```
 
-ICB:
-The overall prescribing rate of tirzepatide varied both across ICBs and within regions (Fig 2). The timing of the first prescription ranged from `{r} formatted_date(min_month)` (21 ICBs) to `{r} formatted_date(max_month)` (NHS Derby and Derbyshire ICB and NHS Dorset ICB). In `{r} formatted_date(end_date)` the prescribing rate by ICB ranged from `{r} formatted_decimal(df_rateper1000_min |> pull(rateper1000))` per 1,000 patients (`{r} df_rateper1000_min |> pull(icb_name)`) to `{r} formatted_decimal(df_rateper1000_max |> pull(rateper1000))` per 1,000 patients (`{r} df_rateper1000_max |> pull(icb_name)`). All ICBs other than NHS Derby and Derbyshire and NHS Staffordshire and Stoke-On-Trent (both Midlands) experienced either a temporary drop or flattening of prescribing rate immediately after tirzepatide was approved for weight management. We saw a similar pattern for tirzepatide prescribing per 1,000 QOF obesity register size. In `{r} formatted_date(end_date)` the prescribing rate per 1,000 QOF obesity register size for tirzepatide ranged from 0.0755 to 0.0134 (NHS Cornwall and the Isles of Scilly Integrated Care Board and NHS Dorset Integrated Care Board, respectively). (Supplementary Fig S2:). 
+## Tirzepatide prescribing per 1,000 registered patients.
 
+### Tirzepatide prescribing across England: 
+
+From `{r} formatted_date(start_date)` to `{r} formatted_date(end_date)` the number of patients registered to a practice in England increased from `{r} formatted_num(df_tirzepatide_england |> filter(month==start_date) |> pull(total_list_size))` to `{r} formatted_num(df_tirzepatide_england |> filter(month==end_date) |> pull(total_list_size))`. In total, `{r} formatted_num(all_practices)` GP practices were included in the study. The number of GP practices dropped from `{r} formatted_num(df_practice_counts |> filter(month==start_date) |> pull(n))` to `{r} formatted_num(df_practice_counts |> filter(month==end_date) |> pull(n))`. The NICE diabetes guidance was introduced in October 2023, and the first observed prescribing was `{r} formatted_date(df_tirzepatide_england |> filter(items>0) |> slice_min(month) |> pull(month))` (Figure 1A). In the initial month after the NICE obesity guideline there was a temporary drop in tirzepatide prescribing before the prescribing rate increased. We saw transient dips in prescribing rate in August 2025 and October / November 2025. In `{r} formatted_date(end_date)` the prescribing rate was `{r} formatted_decimal(df_tirzepatide_england |>filter(month==end_date) |>pull(rateper1000))` per 1,000 registered patients.
+
+We saw a similar pattern for tirzepatide prescribing per 1,000 QOF obesity register size (Figure 1B). In `{r} formatted_date(end_date)` the prescribing rate was `{r} formatted_decimal(df_tirzepatide_england_qof |> filter(month==end_date_qof) |> pull(rateper1000register))` per 1,000 QOF obesity register size. The number of registered patients within an ICB was well correlated with the total ICB QOF obesity register size (Supplementary Figure S1).   
+
+
+
+### Tirzepatide prescribing across ICBs: 
+
+The overall prescribing rate of tirzepatide varied both across ICBs and within regions (Fig 2). The timing of the first prescription ranged from `{r} formatted_date(min_month)` (`{r} min_month_n` ICBs) to `{r} formatted_date(max_month)` (`{r} collapse_and(max_month_names)`). In `{r} formatted_date(end_date)` the prescribing rate by ICB ranged from `{r}  min_max_tirzepatide$min$rateper1000` per 1,000 patients (`{r}  min_max_tirzepatide$min$icb_name`) to `{r} min_max_tirzepatide$max$rateper1000` per 1,000 patients (`{r}  min_max_tirzepatide_qof$max$icb_name`). All ICBs experienced a temporary drop of prescribing rate immediately after tirzepatide was approved for weight management. We saw a similar pattern for tirzepatide prescribing per 1,000 QOF obesity register size. In `{r} formatted_date(end_date)` the prescribing rate per 1,000 QOF obesity register size for tirzepatide ranged from `{r} min_max_tirzepatide_qof$min$rateper1000register` to `{r} min_max_tirzepatide_qof$max$rateper1000register` (`{r} min_max_tirzepatide_qof$min$icb_name` & `{r} min_max_tirzepatide_qof$max$icb_name`, respectively). (Supplementary Fig S2:). 
+
+
+```{r}
+#| label: icb-stats-strength
+#| include: false
+
+df_min_months_strength <- df_tirzepatide_icb_strength |>
+  filter(items > 0) |>
+  slice_min(month, by = icb_name)
+
+first_month_2.5 <- df_min_months_strength |>
+  filter(strength == "2.5mg / 0.6ml")
+
+first_month_5 <- df_min_months_strength |>
+  filter(strength == "5mg / 0.6ml")
+
+first_month_over_5 <- df_min_months_strength |>
+  filter(strength != "2.5mg / 0.6ml", strength != "5mg / 0.6ml")
+```
+
+
+### Tirzepatide prescribing by strength
+
+Across England as a whole 5mg / 0.6ml was the most commonly prescribed strength of tirzepatide. Patients should be initiated on a dose of 2.5mg / 0.6ml. In the early months of the rollout we see that 2.5mg / 0.6ml was the most frequently prescribed before the higher doses are more commonly prescribed. Prescribing rates of the highest strength (15mg / 0.6ml) remain relatively low (Fig 3). There is a transient drop in the prescribing of all strengths of tirzepatide following the introduction of the NICE obesity guidance.
+
+
+There was considerable variation in prescribing rate for all strengths across each of the 42 Integrated Care Boards (Supplementary Fig S3). All ICBs prescribed 2.5mg / 0.6ml strength within their first month of prescribing. `{r} first_month_5 |> nrow()` of the 42 ICBs prescribed 5mg /0.6ml strength in their first month of prescribing. `{r} no_or_num(first_month_over_5)` prescribed 7.5mg /0.6ml or stronger in their first month of prescribing. Typically as ICBs initiated tirzepatide prescribing 2.5mg / 0.6ml was the most commonly prescribed before 5mg / 0.6ml became more commonly prescribed. All practices had a lag between tirzepatide being licensed for diabetes (dashed vertical line) and initiating prescribing.
+
+### Tirzepatide prescribing within ICBs: 
+
+```{r}
+#| label: practice-stats
+#| include: false
+
+no_prescribe <- df_tirzepatide_practice |>
+  filter(month == end_date) |>
+  filter(rateper1000 == 0)
+
+no_prescribe_practices <- no_prescribe |> distinct(practice)
+
+no_prescribe_icb <- no_prescribe |> distinct(icb_name)
+
+df_tirzepatide_practice_prescribe <- df_tirzepatide_practice |>
+  filter(month == end_date) |>
+  filter(rateper1000 > 0)
+
+min_max_tirzepatide_practice <- min_max(
+  df_tirzepatide_practice_prescribe,
+  "rateper1000",
+  end_date
+)
+
+
+df_icb_prescribe_range <- df_tirzepatide_practice_prescribe |>
+  summarise(
+    min = min(rateper1000),
+    max = max(rateper1000),
+    range = max - min,
+    .by = c(icb_code, icb_name)
+  )
+df_icb_prescribe_range_min <- df_icb_prescribe_range |> slice_min(range)
+df_icb_prescribe_range_max <- df_icb_prescribe_range |> slice_max(range)
+
+# min_max_icb <- function(df, rate, end_month) {
+#   df_end <- df |>
+#     filter(month == end_month)
+
+#   min <- df_end |>
+#     group_by(c(ib_code,icb_name)) |>
+#     slice_min(.data[[rate]]) |>
+#     mutate("{rate}" := formatted_decimal(.data[[rate]]))
+
+#   max <- df_end |>
+#     slice_max(.data[[rate]]) |>
+#     mutate("{rate}" := formatted_decimal(.data[[rate]]))
+
+#   list(
+#     min = min,
+#     max = max
+#   )
+# }
+```
+
+
+Within the individual integrated care boards we saw considerable variation in the prescribing rates of individual practices.  In `{r} formatted_date(end_date)` `{r} no_prescribe_practices |> nrow()` practices from `{r} no_prescribe_icb |> nrow()`  ICBs did not prescribe tirzepatide (`{r} collapse_and(no_prescribe_icb)`). Of practices that did prescribe, the prescribing rate of any strength of tirzepatide ranged from `{r} min_max_tirzepatide_practice$min$rateper1000` per 1,000 registered patients (`{r} min_max_tirzepatide_practice$min$name`, `{r} min_max_tirzepatide_practice$min$icb_name` [QF7]) to `{r} min_max_tirzepatide_practice$max$rateper1000` per 1,000 registered patients (`{r} min_max_tirzepatide_practice$max$name`, `{r} min_max_tirzepatide_practice$max$icb_name`). `{r} df_icb_prescribe_range_min$icb_name` had the smallest range in practice prescribing rate (`{r} formatted_num(df_icb_prescribe_range_min$min)` - `{r} formatted_num(df_icb_prescribe_range_min$max)` per 1,000 registered patients) and `{r} df_icb_prescribe_range_max$icb_name` had the largest range (`{r} formatted_num(df_icb_prescribe_range_max$min)` - `{r} formatted_num(df_icb_prescribe_range_max$max)` per 1,000 registered patients).
+
+
+## Orlistat prescribing per 1,000 registered patients.
+
+Orlistat was consistently prescribed in all ICBs throughout the study period (Figure 4). Prescribing rate of orlistat varied both across all ICBs and within regions (Fig 3). Orlistat 120mg prescribing rate was consistently lowest in NHS Northamptonshire. In `{r} formatted_date(end_date)` the prescribing rate of 120mg orlistat ranged from `{r} min_max_orlistat$min$rateper1000` to `{r} min_max_orlistat$max$rateper1000` per 1,000 (`{r} min_max_orlistat$min$icb_name` and `{r} min_max_orlistat$max$icb_name` respectively). 
