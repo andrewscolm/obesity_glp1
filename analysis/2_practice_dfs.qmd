@@ -59,47 +59,47 @@ source(here("analysis", "1_opr_extract.r"))
 #| include: false
 
 #### practice level orlistat data
-df_orlistat_practice <- read_parquet(here::here(
+op_df_orlistat_practice <- read_parquet(here::here(
   "data",
   "op_df_orlistat.parquet"
 ))
 
 #### practice level tirzepatide data
-df_tirzepatide_practice <- read_parquet(here::here(
+op_df_tirzepatide_practice <- read_parquet(here::here(
   "data",
   "op_df_tirzepatide.parquet"
 ))
 
 ### ccgs from practice
-df_ccgs <- read_parquet(here::here(
+op_df_ccgs <- read_parquet(here::here(
   "data",
   "op_df_ccgs.parquet"
 ))
 
 
-df_chemical_names_orlistat <- read_parquet(
+op_df_chemical_names_orlistat <- read_parquet(
   here("data", "op_df_bnf_orlistat.parquet")
 ) |>
   select(-year_month)
 
-df_chemical_names_tirzepatide <- read_parquet(
+op_df_chemical_names_tirzepatide <- read_parquet(
   here("data", "op_df_bnf_tirzepatide.parquet")
 ) |>
   select(-year_month)
 
-df_practice_open_info <- read_parquet(
+op_df_practice_open_info <- read_parquet(
   here("data", "op_df_gp_practices.parquet")
 )
 
-df_practice_list_size <- read_parquet(
+op_df_practice_list_size <- read_parquet(
   here("data", "op_df_practice_statistics.parquet")
 )
 
-df_region_names <- read_parquet(
+op_df_region_names <- read_parquet(
   here("data", "op_df_regional_teams.parquet")
 )
 
-df_stp_names <- read_parquet(
+op_df_stp_names <- read_parquet(
   here("data", "op_df_stp_names.parquet")
 )
 
@@ -113,7 +113,7 @@ df_qof_ob <- read_csv(here::here("data", "qof", "prevalence.csv")) |>
 #| label: tirzepatide_clean
 #| include: false
 
-df_tirzepatide_practice <- df_tirzepatide_practice |>
+op_df_tirzepatide_practice <- op_df_tirzepatide_practice |>
   filter(grepl("0.6ml", bnf_name)) |>
   mutate(
     strength = gsub("[^0-9/.]", "", bnf_name),
@@ -127,7 +127,7 @@ df_tirzepatide_practice <- df_tirzepatide_practice |>
 ```{r}
 #| label: orlistat_clean
 #| include: false
-df_orlistat_practice <- df_orlistat_practice |>
+op_df_orlistat_practice <- op_df_orlistat_practice |>
   filter(grepl("120mg", bnf_name)) |>
   mutate(
     strength = gsub("\\D", "", bnf_name),
@@ -143,8 +143,8 @@ df_orlistat_practice <- df_orlistat_practice |>
 
 ### join practice open dates to practice list size by code / practice
 included_practice_status <- function() {
-  df <- df_practice_open_info |>
-    full_join(df_practice_list_size, by = join_by(code == practice)) |>
+  df <- op_df_practice_open_info |>
+    full_join(op_df_practice_list_size, by = join_by(code == practice)) |>
     ## create closed status by month
     ## close date is after end of month, join date is before month, leave_provider_date is after end of month)
     mutate(
@@ -158,7 +158,7 @@ included_practice_status <- function() {
       )
     ) |>
     left_join(
-      df_ccgs |> select(code, regional_team_id, stp_id),
+      op_df_ccgs |> select(code, regional_team_id, stp_id),
       by = join_by(ccg_id == code)
     )
 }
@@ -172,9 +172,10 @@ included_practices <- function() {
       status_code_label != "Dormant",
       total_list_size >= 1000
     ) |>
-    select(code, month, total_list_size, ccg_id) |>
+    mutate(prac_name = str_to_title(name)) |>
+    select(code, month, prac_name, total_list_size, ccg_id) |>
     left_join(
-      df_ccgs |> select(code, regional_team_id, stp_id),
+      op_df_ccgs |> select(code, regional_team_id, stp_id),
       by = join_by(ccg_id == code)
     )
 }
@@ -187,37 +188,37 @@ included_practices <- function() {
 df_included_practice_status <- included_practice_status()
 
 ### number of practices in dfs
-df_practice_open_info |> distinct(code) |> nrow()
+op_df_practice_open_info |> distinct(code) |> nrow()
 
-df_practice_list_size |>
+op_df_practice_list_size |>
   distinct(practice) |>
   nrow()
 
-df_included_practice_status |> distinct(code) |> nrow()
+op_df_included_practice_status |> distinct(code) |> nrow()
 
 ## count practices with missing list size (i.e. not in df_practice_list_size)
-df_included_practice_status |>
+op_df_included_practice_status |>
   filter(is.na(total_list_size)) |>
   distinct(code) |>
   nrow()
 
 
 ## count practices with missing setting (i.e. not in df_practice_open_info)
-df_included_practice_status |>
+op_df_included_practice_status |>
   filter(is.na(setting)) |>
   distinct(code) |>
   nrow()
 
 #identify practices with missing setting (i.e. not in df_practice_open_info)
-df_included_practice_status |>
+op_df_included_practice_status |>
   filter(is.na(setting)) |>
   count(month, by = month_status)
 
-df_included_practice_status |>
+op_df_included_practice_status |>
   filter(is.na(setting)) |>
   distinct(code) |>
   left_join(
-    df_practice_list_size |>
+    op_df_practice_list_size |>
       summarise(
         mean_list_size = mean(total_list_size),
         n_months = n(),
@@ -230,23 +231,23 @@ df_included_practice_status |>
 
 
 #identify active practices with missing list size (i.e. not in df_practice_list_size)
-df_missing_active <- df_included_practice_status |>
+df_missing_active <- op_df_included_practice_status |>
   filter(is.na(total_list_size), status_code_label == "Active") |>
   select(code, name, stp_id)
 
-df_included_practice_status |>
+op_df_included_practice_status |>
   filter(is.na(total_list_size), status_code_label == "Active") |>
   count(stp_id) |>
   arrange(-n)
 
 # df with only practices in df_practice_list_size
-df_included_practice_status_withlist <- df_included_practice_status |>
+df_included_practice_status_withlist <- op_df_included_practice_status |>
   filter(!(is.na(total_list_size)), !is.na(setting))
 
 ## check 15 practices lost from df_practice_list_size (monthly counts of df_included_practice_status_withlist == monthly counts of df_included_practice_status_withlist should be TRUE)
 df_included_practice_status_withlist |>
   count(month) |>
-  full_join(df_practice_list_size |> count(month)) |>
+  full_join(op_df_practice_list_size |> count(month)) |>
   nrow() ==
   df_included_practice_status_withlist |> count(month) |> nrow()
 
@@ -364,7 +365,7 @@ df_included_practice_status_withlist |>
 #| include: false
 
 combine_data <- function(drug) {
-  df <- get(glue("df_{drug}_practice"))
+  df <- get(glue("op_df_{drug}_practice"))
 
   df_strength <- df |>
     distinct(strength)
@@ -375,7 +376,7 @@ combine_data <- function(drug) {
   ### add chemical name from df_chemical_names_
   df2 <- df |>
     inner_join(
-      get(glue("df_chemical_names_{drug}")),
+      get(glue("op_df_chemical_names_{drug}")),
       by = join_by(bnf_code == presentation_code)
     )
   ### warn if rows added or removed
@@ -541,11 +542,11 @@ df_nonprescribed("tirzepatide") |>
   filter(month == as.Date(end_date)) |>
   select(practice, total_list_size) %>%
   left_join(
-    df_practice_open_info |> select(code, name, ccg_id),
+    op_df_practice_open_info |> select(code, name, ccg_id),
     by = join_by(practice == code)
   ) |>
   left_join(
-    df_ccgs |> select(code, regional_team_id, stp_id),
+    op_df_ccgs |> select(code, regional_team_id, stp_id),
     by = join_by(ccg_id == code)
   ) |>
   select(practice, name, stp_id, regional_team_id, total_list_size)
@@ -564,14 +565,14 @@ dormant_practices <- function(status_label) {
     ) |>
     select(code, month, total_list_size, ccg_id) |>
     left_join(
-      df_ccgs |> select(code, regional_team_id, stp_id),
+      op_df_ccgs |> select(code, regional_team_id, stp_id),
       by = join_by(ccg_id == code)
     )
 }
 
 
 combine_data_dormant <- function(drug, status_label) {
-  df <- get(glue("df_{drug}_practice"))
+  df <- get(glue("op_df_{drug}_practice"))
 
   df_strength <- df |>
     distinct(strength)
@@ -582,7 +583,7 @@ combine_data_dormant <- function(drug, status_label) {
   ### add chemical name from df_chemical_names_
   df2 <- df |>
     inner_join(
-      get(glue("df_chemical_names_{drug}")),
+      get(glue("op_df_chemical_names_{drug}")),
       by = join_by(bnf_code == presentation_code)
     )
   ### warn if rows added or removed
@@ -713,7 +714,7 @@ qof_icb_names <- df_qof_region |>
 practice_level_data <- function(drug, ...) {
   ## aggregate to stp level
   df <- combine_data(drug) |>
-    left_join(df_stp_names, by = join_by(stp == code)) |>
+    left_join(op_df_stp_names, by = join_by(stp == code)) |>
     left_join(
       qof_icb_names,
       by = join_by(stp == icb_ods_code)
@@ -742,7 +743,7 @@ practice_level_data <- function(drug, ...) {
       items = sum(items),
       total_list_size = mean(total_list_size),
       rateper1000 = items / total_list_size * 1000,
-      .by = c(month, practice, ...)
+      .by = c(month, practice, prac_name, ...)
     )
 
   df
@@ -769,7 +770,7 @@ practice_level_data_qof <- function(df_in, drug, ...) {
       by = join_by(practice == practice_code)
     ) |>
     mutate(rateper1000register = items / register * 1000) |>
-    arrange(month, practice, ...)
+    arrange(month, practice, prac_name, ...)
 }
 
 
