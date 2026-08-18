@@ -84,6 +84,13 @@ df_tirzepatide_england <- rio::import(file.path(
 )) %>%
   mutate(icb_name = "", region = "")
 
+df_orlistat_england <- rio::import(file.path(
+  "data",
+  "df_orlistat_england.parquet"
+)) %>%
+  mutate(icb_name = "", region = "")
+
+
 # Create plots ----
 
 ## Plot ICB region ----
@@ -164,7 +171,30 @@ plot_by_icb_sorted_by_region_with_background(
   png_filename = here::here(
     "output",
     "protocol",
-    "tirzepitide_icb_region_total.png"
+    "tirzepitide_icb_region_totalt.png"
+  )
+)
+
+# Plot Orlistat England
+## Plot England ----
+
+plot_by_icb_sorted_by_region_with_background(
+  df = df_orlistat_england,
+  plot_expr = expr(
+    plot_icb_with_background_color(
+      df = df,
+      icb_name = icb_name,
+      x_axis_text = add_x_axis_text,
+      y_axis_text = add_y_axis_text
+    )
+  ),
+  plot_line_legend = F,
+  plot_region_legend = F,
+  save_png = T,
+  png_filename = here::here(
+    "output",
+    "protocol",
+    "orlistat_icb_region_total.png"
   )
 )
 
@@ -197,51 +227,6 @@ df_tirzepatide_icb_month_summary <- df_tirzepatide_icb_month %>%
       )
   )
 
-# # QOF England summary ---
-# df_tirzepatide_icb_month_qof_summary <- df_tirzepatide_icb_month_qof %>%
-#   mutate(type = "ICB") %>%
-#   bind_rows(
-#     df_tirzepatide_icb_month_qof %>%
-#       summarise(
-#         .by = month,
-#         icb_name = "",
-#         region = "",
-#         median = median(rateper1000register, na.rm = TRUE),
-#         iqr_low = quantile(rateper1000register, 0.25, na.rm = TRUE),
-#         iqr_high = quantile(rateper1000register, 0.75, na.rm = TRUE)
-#       ) %>%
-#       pivot_longer(
-#         cols = c(median, iqr_low, iqr_high),
-#         names_to = "type",
-#         values_to = "rateper1000register"
-#       ) %>%
-#       mutate(
-#         type = recode(
-#           type,
-#           median = "Median",
-#           iqr_low = "IQR lower",
-#           iqr_high = "IQR upper"
-#         )
-#       )
-#   )%>%
-#       pivot_longer(
-#         cols = c(mean, median, iqr_low, iqr_high),
-#         names_to = "type",
-#         values_to = "rateper1000"
-#       ) %>%
-#       mutate(
-#         color_group = factor(
-#           recode(
-#             type,
-#             mean = "Mean",
-#             median = "Median",
-#             iqr_low = "IQR Low",
-#             iqr_high = "IQR High"
-#           ),
-#           levels = legend_levels
-#         )
-#       )
-# levels(df_tirzepatide_icb_month_qo_summary$color_group)
 
 #================
 # All england deciles or mean,med,quartiles plot
@@ -287,12 +272,32 @@ df_tirzepatide_icb_month_summary <- df_tirzepatide_icb_month %>%
   )
 levels(df_tirzepatide_icb_month_summary$color_group)
 
-icb_summary_colors <- get_color_palette("icb_summary")
+icb_summary_colors <- c(
+  get_color_palette("icb_summary")
+)
 
 summary_plot <- ggplot(
   df_tirzepatide_icb_month_summary,
   aes(x = month, y = rateper1000, group = interaction(icb_name, color_group))
 ) +
+  geom_vline(
+    aes(
+      xintercept = as.POSIXct(date_tirzepatide_diab),
+      linetype = "NICE Diabetes Guidance"
+    ),
+    color = "grey40",
+    alpha = 1,
+    linewidth = 1.2,
+  ) +
+  geom_vline(
+    aes(
+      xintercept = as.POSIXct(date_tirzepatide_ng),
+      linetype = "NICE Weight Management Guidance"
+    ),
+    color = "grey40",
+    alpha = 1,
+    linewidth = 1.2
+  ) +
   geom_line(
     aes(
       color = color_group,
@@ -301,18 +306,23 @@ summary_plot <- ggplot(
       alpha = color_group
     ),
   ) +
-  add_date_lines() +
   scale_color_manual(
     values = icb_summary_colors,
   ) +
   scale_linetype_manual(
     values = c(
-      "Mean" = 1,
-      "Median" = 1,
-      "IQR Low" = 2,
-      "IQR High" = 2,
-      "ICB" = 1
+      "NICE Diabetes Guidance" = "dotted",
+      "NICE Weight Management Guidance" = "dashed",
+      "Mean" = "solid",
+      "Median" = "solid",
+      "IQR Low" = "dashed",
+      "IQR High" = "dashed",
+      "ICB" = "solid"
     ),
+    breaks = c(
+      "NICE Diabetes Guidance",
+      "NICE Weight Management Guidance"
+    )
   ) +
   scale_linewidth_manual(
     values = c(
@@ -347,9 +357,12 @@ summary_plot <- ggplot(
   ) +
   guides(
     color = guide_legend(reverse = TRUE),
-    linetype = guide_legend(reverse = TRUE),
-    linewidth = guide_legend(reverse = TRUE),
-    alpha = guide_legend(reverse = TRUE)
+    linetype = guide_legend(
+      nrow = 2,
+      order = 2,
+    ),
+    linewidth = "none",
+    alpha = "none"
   ) +
   xlab("") +
   ylab("Rate per 1000 registered patients")
@@ -412,12 +425,28 @@ df_tirzepatide_icb_month_qof_summary <- df_tirzepatide_icb_month_qof %>%
   )
 levels(df_tirzepatide_icb_month_qof_summary$color_group)
 
-icb_summary_colors <- get_color_palette("icb_summary")
-
 summary_plot_qof <- ggplot(
   df_tirzepatide_icb_month_qof_summary,
   aes(x = month, y = rateper1000, group = interaction(icb_name, color_group))
 ) +
+  geom_vline(
+    aes(
+      xintercept = as.POSIXct(date_tirzepatide_diab),
+      linetype = "NICE Diabetes Guidance"
+    ),
+    color = "grey40",
+    alpha = 1,
+    linewidth = 1.2,
+  ) +
+  geom_vline(
+    aes(
+      xintercept = as.POSIXct(date_tirzepatide_ng),
+      linetype = "NICE Weight Management Guidance"
+    ),
+    color = "grey40",
+    alpha = 1,
+    linewidth = 1.2
+  ) +
   geom_line(
     aes(
       color = color_group,
@@ -426,18 +455,23 @@ summary_plot_qof <- ggplot(
       alpha = color_group
     ),
   ) +
-  add_date_lines() +
   scale_color_manual(
     values = icb_summary_colors,
   ) +
   scale_linetype_manual(
     values = c(
-      "Mean" = 1,
-      "Median" = 1,
-      "IQR Low" = 2,
-      "IQR High" = 2,
-      "ICB" = 1
+      "NICE Diabetes Guidance" = "dotted",
+      "NICE Weight Management Guidance" = "dashed",
+      "Mean" = "solid",
+      "Median" = "solid",
+      "IQR Low" = "dashed",
+      "IQR High" = "dashed",
+      "ICB" = "solid"
     ),
+    breaks = c(
+      "NICE Diabetes Guidance",
+      "NICE Weight Management Guidance"
+    )
   ) +
   scale_linewidth_manual(
     values = c(
@@ -474,9 +508,12 @@ summary_plot_qof <- ggplot(
   ) +
   guides(
     color = guide_legend(reverse = TRUE),
-    linetype = guide_legend(reverse = TRUE),
-    linewidth = guide_legend(reverse = TRUE),
-    alpha = guide_legend(reverse = TRUE)
+    linetype = guide_legend(
+      nrow = 2,
+      order = 2,
+    ),
+    linewidth = "none",
+    alpha = "none"
   ) +
   xlab("") +
   ylab("Rate per 1000 registered patients")

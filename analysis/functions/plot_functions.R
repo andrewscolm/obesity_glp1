@@ -5,37 +5,6 @@ library(patchwork)
 library(glue)
 library(scales)
 
-# # Load data ----
-
-# df_tirzepatide_icb_month <-
-#   readRDS(here::here("data", "df_tirzepatide_icb_month.rds"))
-
-# df_tirzepatide_icb_strength_month <-
-#   readRDS(here::here("data", "df_tirzepatide_icb_strength_month.rds")) %>%
-#   mutate(
-#     strength = factor(
-#       strength,
-#       levels = c(
-#         "2.5mg / 0.6ml",
-#         "5mg / 0.6ml",
-#         "7.5mg / 0.6ml",
-#         "10mg / 0.6ml",
-#         "12.5mg / 0.6ml",
-#         "15mg / 0.6ml"
-#       )
-#     )
-#   ) %>%
-#   summarise(
-#     .by = c(month, region, stp, total_list_size, icb_name, strength),
-#     items = sum(items),
-#     rateper1000 = items / total_list_size[1] * 1000
-#   )
-
-date_tirzepatide_ng <- as.Date("2024-12-23")
-date_tirzepatide_diab <- as.Date("2023-10-25")
-
-# Helper functions ----
-
 # Formats ICB names by replacing the last space in the first n characters of a string with a given string (default is 20 and "\n"). This is useful for formatting ICB names for plotting, ensuring that the last word in the first 20 characters is separated by an underscore for better readability in plot titles or labels.
 replace_last_space_firstn <- function(x, n = 24, replacement = "\n") {
   sapply(
@@ -179,17 +148,55 @@ get_col_pal_legend <- function(
 }
 
 add_date_lines <- function() {
+  # Adding legend with patchwork_timeline_legend instead of geom_text
   list(
-    # geom_vline(
-    #   xintercept = as.POSIXct(date_tirzepatide_diab),
-    #   linetype = "dotted"
-    # ),
+    geom_vline(
+      xintercept = as.POSIXct(date_tirzepatide_diab),
+      aes(linetype = "")
+    ),
     geom_vline(
       xintercept = as.POSIXct(date_tirzepatide_ng),
       linetype = "dashed"
     )
+    # geom_text(
+    #   aes(
+    #     x = as.POSIXct(date_tirzepatide_ng),
+    #     y = max(rateper1000) - max(rateper1000) * 0.1,
+    #     label = "NICE Weight Management Guidance",
+    #     angle = 90,
+    #     size = 4
+    #   )
+    # )
   )
 }
+
+patchwork_timeline_legend <- tibble(
+  legend_label = factor(
+    c("NICE Diabetes Guidance", "NICE Weight Management Guidance"),
+    levels = c("NICE Diabetes Guidance", "NICE Weight Management Guidance")
+  )
+) %>%
+  ggplot(aes(x = 1, y = legend_label, linetype = legend_label)) +
+  geom_line() +
+  scale_linetype_manual(
+    values = c(
+      "NICE Diabetes Guidance" = "dotted",
+      "NICE Weight Management Guidance" = "dashed"
+    ),
+    guide = guide_legend(
+      title = "",
+      direction = "horizontal",
+    )
+  ) +
+  theme_void() +
+  theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.box = "horizontal",
+    legend.text = element_text(size = 28),
+    legend.title = element_text(size = 28, face = "bold")
+  )
+
 
 # get_col_pal_legend( palette_names = "icb_3")
 
@@ -273,12 +280,20 @@ plot_by_icb_sorted_by_region_with_background <- function(
     plot_full_layout <- plot_full_layout /
       line_legend /
       region_legend +
-      plot_layout(heights = c(48, 1, 1))
+      patchwork_timeline_legend +
+      plot_layout(heights = c(48, 1, 1, 1))
   }
 
   if (plot_line_legend & !plot_region_legend) {
     plot_full_layout <- plot_full_layout /
       line_legend +
+      patchwork_timeline_legend +
+      plot_layout(heights = c(48, 1, 1))
+  }
+
+  if (!plot_line_legend & !plot_region_legend) {
+    plot_full_layout <- plot_full_layout /
+      patchwork_timeline_legend +
       plot_layout(heights = c(48, 1))
   }
 
