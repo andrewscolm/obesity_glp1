@@ -69,7 +69,11 @@ icb_title_name <- function(icb_names, line_split_n = 1000) {
   icb_names %>%
     str_remove_all("NHS | ICB") %>%
     str_squish() %>%
-    replace_last_space_firstn(., n = 29)
+    replace_last_space_firstn(., n = 30) %>%
+    gsub(
+      pattern = "Nottingham and Nottinghamshire",
+      replace = "Nottingham and\nNottinghamshire"
+    )
 }
 
 grid_dims <- function(n) {
@@ -227,7 +231,7 @@ plot_by_icb_sorted_by_region_with_background <- function(
   })
 
   n_icbs <- length(unique(df$icb_name))
-  dims <- grid_dims(42)
+  dims <- grid_dims(n_icbs)
   nrow_plot <- unname(dims["nrow"])
   ncol_plot <- unname(dims["ncol"])
 
@@ -285,7 +289,7 @@ plot_by_icb_sorted_by_region_with_background <- function(
       plot_full_layout,
       filename = png_filename,
       dpi = 100,
-      width = 80,
+      width = 66,
       height = 50,
       units = "cm"
     )
@@ -352,6 +356,7 @@ plot_icb_with_background_color <- function(
       aes(color = color_group),
       linewidth = 1.2
     ) +
+    add_date_lines() +
     scale_color_manual(
       values = col_pal,
       guide = "none"
@@ -359,6 +364,10 @@ plot_icb_with_background_color <- function(
     scale_y_continuous(
       labels = label_comma(),
       limits = c(0, max(df$rateper1000, na.rm = T))
+    ) +
+    scale_x_date(
+      breaks = plot_date_breaks,
+      labels = date_format("%b %Y")
     ) +
     ggtitle(icb_title_name) +
     theme_bw() +
@@ -398,7 +407,11 @@ plot_icb_tirzepatide_strength <- function(
   icb_title_name <- icbname %>%
     str_remove_all("NHS | ICB") %>%
     str_squish() %>%
-    replace_last_space_firstn(., n = 29)
+    replace_last_space_firstn(., n = 30) %>%
+    gsub(
+      pattern = "Nottingham and Nottinghamshire",
+      replace = "Nottingham and\nNottinghamshire"
+    )
 
   current_region <- df %>%
     filter(icb_name == icbname) %>%
@@ -411,19 +424,22 @@ plot_icb_tirzepatide_strength <- function(
   plot <- df %>%
     filter(icb_name == icbname) %>%
     ggplot() +
-    add_date_lines() +
     geom_line(
       aes(
         x = month,
         y = rateper1000,
         color = strength
       ),
-      linewidth = 1,
+      linewidth = 1.2,
       alpha = 0.9
     ) +
     scale_y_continuous(
       labels = label_comma(),
       limits = c(0, max(df$rateper1000, na.rm = T))
+    ) +
+    scale_x_date(
+      breaks = plot_date_breaks,
+      labels = date_format("%b %Y")
     ) +
     add_date_lines() +
     scale_color_manual(values = col_pal) +
