@@ -42,6 +42,10 @@ icb_title_name <- function(icb_names, line_split_n = 1000) {
     gsub(
       pattern = "Nottingham and Nottinghamshire",
       replace = "Nottingham and\nNottinghamshire"
+    ) |>
+    gsub(
+      pattern = " and",
+      replace = " &"
     )
 }
 
@@ -58,7 +62,7 @@ theme_no_axis_labels <- function() {
   list(
     guides(color = "none"),
     theme(
-      text = element_text(size = 18),
+      text = element_text(size = 28),
       axis.text.x = element_blank(),
       axis.ticks.x = element_blank(),
       axis.text.y = element_blank(),
@@ -73,13 +77,13 @@ get_color_palette <- function(palette_names = TRUE) {
   col_pal <-
     list(
       regions = c(
-        "East of England" = "#b6e59b8c",
-        "London" = "#8dabd371",
-        "Midlands" = "#eeb35a38",
-        "North East and Yorkshire" = "#8aebe693",
-        "North West" = "#f344444d",
-        "South East" = "#e7b6e1",
-        "South West" = "#ffffb3"
+        "East of England" = "#8be2ed",
+        "London" = "#93cbff",
+        "Midlands" = "#9ba5f4",
+        "North East and Yorkshire" = "#998dca",
+        "North West" = "#f4a8f4",
+        "South East" = "#f58a98",
+        "South West" = "#ffcc8a"
       ),
       icb_3 = c(
         "Title ICB" = "#e84a5f",
@@ -142,8 +146,8 @@ get_col_pal_legend <- function(
       legend.position = "bottom",
       legend.direction = "horizontal",
       legend.box = "horizontal",
-      legend.text = element_text(size = 28),
-      legend.title = element_text(size = 28, face = "bold")
+      legend.text = element_text(size = 35),
+      legend.title = element_text(size = 35, face = "bold")
     )
 }
 
@@ -180,7 +184,7 @@ patchwork_timeline_legend <- tibble(
   geom_line() +
   scale_linetype_manual(
     values = c(
-      "NICE Diabetes Guidance" = "dotted",
+      "NICE Diabetes Guidance" = "",
       "NICE Weight Management Guidance" = "dashed"
     ),
     guide = guide_legend(
@@ -193,8 +197,8 @@ patchwork_timeline_legend <- tibble(
     legend.position = "bottom",
     legend.direction = "horizontal",
     legend.box = "horizontal",
-    legend.text = element_text(size = 28),
-    legend.title = element_text(size = 28, face = "bold")
+    legend.text = element_text(size = 35),
+    legend.title = element_text(size = 35, face = "bold")
   )
 
 
@@ -251,9 +255,9 @@ plot_by_icb_sorted_by_region_with_background <- function(
       #   add_x_axis_text = i > n_icbs - ncol_plot
       #   add_y_axis_text = i %in% seq(1, n_icbs, ncol_plot)
       # )
-      add_x_axis_text = i > n_icbs - ncol_plot
-      add_y_axis_text = i %in% seq(1, n_icbs, ncol_plot)
-      eval(plot_expr)
+      add_x_axis_text <- i > n_icbs - ncol_plot
+      add_y_axis_text <- i %in% seq(1, n_icbs, ncol_plot)
+      rlang::eval_tidy(plot_expr)
     }
   )
 
@@ -304,8 +308,8 @@ plot_by_icb_sorted_by_region_with_background <- function(
       plot_full_layout,
       filename = png_filename,
       dpi = 100,
-      width = 66,
-      height = 50,
+      width = 95,
+      height = 60,
       units = "cm"
     )
   }

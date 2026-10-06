@@ -1,23 +1,26 @@
 library(tidyverse)
 library(patchwork)
 library(glue)
+library(here)
 library(scales)
 library(rio)
+library(ggiraph)
 
-source(file.path("analysis", "functions", "plot_functions.R"))
+source(here("analysis", "functions", "plot_functions.R"))
+source(here("analysis", "design", "design.r"))
 
 # Set dates ----
 
 date_tirzepatide_ng <- as.Date("2024-12-23")
 date_tirzepatide_diab <- as.Date("2023-10-25")
-plot_date_breaks = c(
+plot_date_breaks <- c(
   seq(as.Date("2023-01-01"), as.Date("2026-05-01"), "6 months"),
   as.Date("2026-05-01")
 )
 
 # Load data ----
 
-df_regions <- rio::import(file.path("data", "op_df_regional_teams.parquet")) %>%
+df_regions <- rio::import(here("data", "op_df_regional_teams.parquet")) %>%
   mutate(
     region = tools::toTitleCase(str_to_lower(gsub(
       " COMMISSIONING REGION",
@@ -27,7 +30,7 @@ df_regions <- rio::import(file.path("data", "op_df_regional_teams.parquet")) %>%
   ) %>%
   select(code, region)
 
-df_tirzepatide_icb_month <- rio::import(file.path(
+df_tirzepatide_icb_month <- rio::import(here(
   "data",
   "df_tirzepatide_icb.parquet"
 )) %>%
@@ -41,7 +44,7 @@ df_tirzepatide_icb_month <- rio::import(file.path(
   left_join(df_regions, by = c("regional_team" = "code"))
 
 
-df_tirzepatide_icb_month_qof <- rio::import(file.path(
+df_tirzepatide_icb_month_qof <- rio::import(here(
   "data",
   "df_tirzepatide_icb_qof.parquet"
 )) %>%
@@ -55,7 +58,7 @@ df_tirzepatide_icb_month_qof <- rio::import(file.path(
   left_join(df_regions, by = c("regional_team" = "code"))
 
 
-df_tirzepatide_icb_strength_month <- rio::import(file.path(
+df_tirzepatide_icb_strength_month <- rio::import(here(
   "data",
   "df_tirzepatide_icb_strength.parquet"
 )) %>%
@@ -69,7 +72,7 @@ df_tirzepatide_icb_strength_month <- rio::import(file.path(
   left_join(df_regions, by = c("regional_team" = "code"))
 
 
-df_tirzepatide_england_strength <- rio::import(file.path(
+df_tirzepatide_england_strength <- rio::import(here(
   "data",
   "df_tirzepatide_england_strength.parquet"
 )) %>%
@@ -78,17 +81,36 @@ df_tirzepatide_england_strength <- rio::import(file.path(
     region = ""
   )
 
-df_tirzepatide_england <- rio::import(file.path(
+df_tirzepatide_england <- rio::import(here(
   "data",
   "df_tirzepatide_england.parquet"
 )) %>%
   mutate(icb_name = "", region = "")
 
-df_orlistat_england <- rio::import(file.path(
+df_orlistat_england <- rio::import(here(
   "data",
   "df_orlistat_england.parquet"
 )) %>%
   mutate(icb_name = "", region = "")
+
+
+df_tirzepatide_practice_qof <-
+  rio::import(here(
+    "data",
+    "df_tirzepatide_practice_qof.parquet"
+  )) |>
+  mutate(icb_name = icb_name_pretty(icb_name))
+
+df_gp_names <-
+  rio::import(here(
+    "data",
+    "op_df_gp_practices.parquet"
+  )) |>
+  select(code, name)
+
+df_tirzepatide_practice_qof <- df_tirzepatide_practice_qof |>
+  left_join(df_gp_names, by = join_by(practice == code)) |>
+  mutate(name = glue("{icb_name_pretty(name)}, {icb_name_pretty(icb_name)}"))
 
 
 # Create plots ----
@@ -231,7 +253,7 @@ df_tirzepatide_icb_month_summary <- df_tirzepatide_icb_month %>%
 #================
 # All england deciles or mean,med,quartiles plot
 legend_levels <- rev(c("Mean", "Median", "IQR Low", "IQR High", "ICB"))
-text_size = 20
+text_size <- 20
 
 df_tirzepatide_icb_month_summary <- df_tirzepatide_icb_month %>%
   mutate(
@@ -377,12 +399,217 @@ ggsave(
   units = "cm"
 )
 
+#### All England plot (Rate per 1000 registered)
+all_england_plot <- ggplot(
+  df_tirzepatide_england,
+  aes(x = month, y = rateper1000)
+) +
+  geom_line(color = "#e84a5f") +
+  geom_vline(
+    aes(
+      xintercept = as.POSIXct(date_tirzepatide_diab),
+      linetype = "NICE Diabetes Guidance"
+    ),
+    color = "grey40",
+    alpha = 1,
+    linewidth = 1.2,
+  ) +
+  geom_vline(
+    aes(
+      xintercept = as.POSIXct(date_tirzepatide_ng),
+      linetype = "NICE Weight Management Guidance"
+    ),
+    color = "grey40",
+    alpha = 1,
+    linewidth = 1.2
+  ) +
+  scale_color_manual(
+    values = icb_summary_colors,
+  ) +
+  scale_linetype_manual(
+    values = c(
+      "NICE Diabetes Guidance" = "dotted",
+      "NICE Weight Management Guidance" = "dashed"
+    ),
+    breaks = c(
+      "NICE Diabetes Guidance",
+      "NICE Weight Management Guidance"
+    )
+  ) +
+  scale_x_date(
+    breaks = plot_date_breaks,
+    labels = date_format("%b %Y")
+  ) +
+  theme_bw() +
+  theme(
+    legend.title = element_blank(),
+    legend.text = element_text(size = text_size),
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    axis.text = element_text(size = text_size),
+    axis.title.y = element_text(size = text_size)
+  ) +
+  guides(
+    color = guide_legend(reverse = TRUE),
+    linetype = guide_legend(
+      nrow = 2,
+      order = 2,
+    ),
+    linewidth = "none",
+    alpha = "none"
+  ) +
+  xlab("") +
+  ylab("Rate per 1000 registered patients")
+
+all_england_plot
+
+ggsave(
+  all_england_plot,
+  filename = here::here("output", "protocol", "all_england_tirzepatide.png"),
+  width = 40,
+  height = 30,
+  units = "cm"
+)
+
+
+#### All England QOF plot (Rate per 1000 registered)
+df_tirzepatide_england_qof <- read_parquet(
+  here("data", "df_tirzepatide_england_qof.parquet")
+)
+
+all_england_plot_qof_A <- ggplot(
+  df_tirzepatide_england_qof,
+  aes(x = month, y = rateper1000register)
+) +
+  geom_line(color = "#e84a5f") +
+  geom_vline(
+    aes(
+      xintercept = as.POSIXct(date_tirzepatide_diab),
+      linetype = "NICE Diabetes Guidance"
+    ),
+    color = "grey40",
+    alpha = 1,
+    linewidth = 1.2,
+  ) +
+  geom_vline(
+    aes(
+      xintercept = as.POSIXct(date_tirzepatide_ng),
+      linetype = "NICE Weight Management Guidance"
+    ),
+    color = "grey40",
+    alpha = 1,
+    linewidth = 1.2
+  ) +
+  scale_color_manual(
+    values = icb_summary_colors,
+  ) +
+  scale_linetype_manual(
+    values = c(
+      "NICE Diabetes Guidance" = "dotted",
+      "NICE Weight Management Guidance" = "dashed"
+    ),
+    breaks = c(
+      "NICE Diabetes Guidance",
+      "NICE Weight Management Guidance"
+    )
+  ) +
+  scale_x_date(
+    breaks = plot_date_breaks,
+    limits = c(min(start_date_qof), max(end_date_qof)),
+    labels = date_format("%b %Y")
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    axis.text = element_text(size = text_size),
+    axis.title.y = element_text(size = text_size)
+  ) +
+  xlab("") +
+  ylab("Rate per 1000 obesity register patients")
+
+all_england_plot_qof_A
+
+all_england_plot_qof_B <- ggplot(
+  df_tirzepatide_england_qof,
+  aes(x = month, y = rateper1000)
+) +
+  geom_line(color = "#e84a5f") +
+  geom_vline(
+    aes(
+      xintercept = as.POSIXct(date_tirzepatide_diab),
+      linetype = "NICE Diabetes Guidance"
+    ),
+    color = "grey40",
+    alpha = 1,
+    linewidth = 1.2,
+  ) +
+  geom_vline(
+    aes(
+      xintercept = as.POSIXct(date_tirzepatide_ng),
+      linetype = "NICE Weight Management Guidance"
+    ),
+    color = "grey40",
+    alpha = 1,
+    linewidth = 1.2
+  ) +
+  scale_color_manual(
+    values = icb_summary_colors,
+  ) +
+  scale_linetype_manual(
+    values = c(
+      "NICE Diabetes Guidance" = "dotted",
+      "NICE Weight Management Guidance" = "dashed"
+    ),
+    breaks = c(
+      "NICE Diabetes Guidance",
+      "NICE Weight Management Guidance"
+    )
+  ) +
+  scale_x_date(
+    breaks = plot_date_breaks,
+    limits = c(min(start_date_qof), max(end_date_qof)),
+    labels = date_format("%b %Y")
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    axis.text = element_text(size = text_size),
+    axis.title.y = element_text(size = text_size)
+  ) +
+  xlab("") +
+  ylab("Rate per 1000 registered patients")
+
+all_england_plot_qof_B
+
+combined_qof_plot <- patchwork::wrap_plots(
+  plots = list(
+    all_england_plot_qof_A,
+    all_england_plot_qof_B
+  ),
+  nrow = 2,
+  ncol = 1
+) +
+  plot_annotation(tag_levels = 'A')
+
+combined_qof_plot
+
+ggsave(
+  combined_qof_plot,
+  filename = here::here(
+    "output",
+    "protocol",
+    "england_qof_combined.png"
+  ),
+  width = 40,
+  height = 40,
+  units = "cm"
+)
 
 # QOF England plot ----
 #================
 # All england deciles or mean,med,quartiles plot
 legend_levels <- rev(c("Mean", "Median", "IQR Low", "IQR High", "ICB"))
-text_size = 20
+text_size <- 20
 
 df_tirzepatide_icb_month_qof_summary <- df_tirzepatide_icb_month_qof %>%
   mutate(
@@ -556,5 +783,106 @@ ggsave(
   ),
   width = 40,
   height = 40,
+  units = "cm"
+)
+
+
+#### Obesity rate by registered rate ICB-level
+
+df_tirzepatide_qof_plot <- df_tirzepatide_icb_month_qof |>
+  filter(month == end_date_qof)
+
+ob_reg_plot <- ggplot(
+  df_tirzepatide_qof_plot,
+  aes(x = register, y = rateper1000, fill = region)
+) +
+  geom_point(shape = 21, size = 2) +
+
+  theme_bw() +
+  theme(
+    legend.title = element_blank(),
+    legend.text = element_text(size = text_size),
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.box = "horizontal",
+    axis.text = element_text(size = text_size),
+    axis.title = element_text(size = text_size)
+  ) +
+  guides(
+    color = guide_legend(reverse = TRUE),
+    linetype = guide_legend(
+      nrow = 2,
+      order = 2,
+    ),
+    linewidth = "none",
+    alpha = "none"
+  ) +
+  xlab("Obesity register size") +
+  ylab("Tirzepatide prescribing rate per 1000 registered patients")
+
+ob_reg_plot
+
+ggsave(
+  ob_reg_plot,
+  filename = here::here("output", "protocol", "icb_ob_reg_plot.png"),
+  width = 40,
+  height = 30,
+  units = "cm"
+)
+
+#### Obesity rate by registered rate practce-level
+
+df_tirzepatide_qof_practice_plot <- df_tirzepatide_practice_qof |>
+  filter(month == end_date_qof)
+
+plot_tirzepatide_qof_practice <- ggplot(
+  df_tirzepatide_qof_practice_plot,
+  aes(x = register, y = rateper1000, colour = icb_name)
+) +
+  geom_point_interactive(
+    aes(tooltip = name, data_id = icb_name, colour = icb_name),
+    extra_interactive_params = "data-id",
+    size = 3,
+  ) +
+  scale_colour_discrete_interactive(
+    data_id = function(breaks) {
+      paste0("icb_", make.names(breaks))
+    },
+    tooltip = function(breaks) {
+      paste0("Select ", breaks)
+    }
+  ) +
+  theme_bw() +
+  scale_colour_discrete_interactive(
+    data_id = function(breaks) {
+      paste0("icb_", make.names(breaks))
+    }
+  ) +
+  # theme(
+  #   legend.title = element_blank(),
+  #   legend.text = element_text(size = 10),
+  #   legend.position = "bottom",
+  #   legend.direction = "horizontal",
+  #   legend.box = "horizontal",
+  #   axis.text = element_text(size = text_size),
+  #   axis.title = element_text(size = text_size)
+  # ) +
+  # guides(
+  #   colour = guide_legend_interactive(reverse = TRUE),
+  #   linetype = guide_legend(nrow = 2, order = 2),
+  #   linewidth = "none",
+  #   alpha = "none"
+  # ) +
+  xlab("Tirzepatide prescribing rate per 1000 obesity register") +
+  ylab("Tirzepatide prescribing rate per 1000 registered patients")
+
+
+plot_tirzepatide_qof_practice
+
+ggsave(
+  plot_tirzepatide_qof_practice,
+  filename = here::here("output", "protocol", "practice_ob_reg_plot.png"),
+  width = 40,
+  height = 30,
   units = "cm"
 )

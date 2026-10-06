@@ -6,7 +6,7 @@ library(scales)
 library(rio)
 
 # Import data ----
-df_tirzepatide_practice <- rio::import(file.path(
+df_tirzepatide_practice <- rio::import(here(
   "data",
   "df_tirzepatide_practice.parquet"
 )) %>%
