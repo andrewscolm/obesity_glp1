@@ -4,21 +4,22 @@ library(here)
 
 # QOF archives by year - easy to add more datasets later
 qof_sources <- list(
-  "2024-25" = list(
-    url = "https://files.digital.nhs.uk/95/4708D7/QOF2425.zip",
+  "2025-26" = list(
+    url = "https://files.digital.nhs.uk/05/37C52B/QOF_2526_v2.zip",
     datasets = list(
-      prevalence = "PREVALENCE_2425.csv",
-      geography = "MAPPING_NHS_GEOGRAPHIES_2425.csv"
-    )
-  ),
-  "2023-24" = list(
-    url = "https://files.digital.nhs.uk/DA/975A29/QOF2324.zip",
-    datasets = list(
-      prevalence = "PREVALENCE_2324.csv",
-      geography = "MAPPING_NHS_GEOGRAPHIES_2324.csv"
+      prevalence = "PREVALENCE_2526.csv",
+      geography = "MAPPING_NHS_GEOGRAPHIES_2526.csv"
     )
   )
 )
+#   "2023-24" = list(
+#     url = "https://files.digital.nhs.uk/DA/975A29/QOF2324.zip",
+#     datasets = list(
+#       prevalence = "PREVALENCE_2324.csv",
+#       geography = "MAPPING_NHS_GEOGRAPHIES_2324.csv"
+#     )
+#   )
+# )
 
 # ,
 # "2022-23" = list(

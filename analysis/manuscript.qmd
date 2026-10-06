@@ -1,0 +1,960 @@
+---
+title: "Weight management prescribing in England: findings following the rollout to primary care"
+
+format:
+  html:
+    fontsize: 11px
+    mainfont: "Arial"
+
+sidebar:
+comments:
+  hypothesis: true
+
+execute:
+  echo: false
+  warning: false
+  message: false
+
+crossref:
+  custom:
+    - kind: float
+      key: suppfig
+      latex-env: suppfig
+      reference-prefix: Figure S
+      space-before-numbering: false
+      latex-list-of-description: Supplementary Figure
+---
+
+```{r}
+#| label: load-packages
+#| include: false
+
+library(dplyr)
+library(readr)
+library(here)
+library(glue)
+library(tidyr)
+library(stringr)
+library(scales) ## format label_number
+library(gt) ## gt table
+library(ggplot2)
+library(lubridate) # interval
+library(arrow)
+```
+
+```{r}
+#| label: load-data
+#| include: false
+
+source(here("analysis", "design", "design.r"))
+source(here("analysis", "functions", "utils.r"))
+source(here("analysis", "functions", "plot_functions.R"))
+
+### total population df
+df_tirzepatide_england <- read_parquet(
+  here("data", "df_tirzepatide_england.parquet")
+)
+
+df_tirzepatide_england_strength <- read_parquet(
+  here("data", "df_tirzepatide_england_strength.parquet")
+)
+
+df_tirzepatide_icb <- read_parquet(
+  here("data", "df_tirzepatide_icb.parquet")
+)
+
+df_tirzepatide_icb_strength <- read_parquet(
+  here("data", "df_tirzepatide_icb_strength.parquet")
+)
+
+df_tirzepatide_practice <- read_parquet(
+  here("data", "df_tirzepatide_practice.parquet")
+)
+
+df_tirzepatide_practice_strength <- read_parquet(
+  here("data", "df_tirzepatide_practice_strength.parquet")
+)
+
+### obesity register df
+df_tirzepatide_england_qof <- read_parquet(
+  here("data", "df_tirzepatide_england_qof.parquet")
+)
+
+df_tirzepatide_icb_qof <- read_parquet(
+  here("data", "df_tirzepatide_icb_qof.parquet")
+)
+
+
+df_practice_counts <- read_parquet(
+  here("data", "df_practice_counts.parquet")
+)
+
+### orlistat df
+df_orlistat_england <- read_parquet(
+  here("data", "df_orlistat_england.parquet")
+)
+
+df_orlistat_england_strength <- read_parquet(
+  here("data", "df_orlistat_england_strength.parquet")
+)
+
+df_orlistat_icb <- read_parquet(
+  here("data", "df_orlistat_icb.parquet")
+)
+
+df_orlistat_icb_strength <- read_parquet(
+  here("data", "df_orlistat_icb_strength.parquet")
+)
+
+# individual stats
+all_practices <- readRDS(here("data", "all_practices.rds"))
+all_icb <- df_tirzepatide_practice_strength |>
+  filter(month == end_date_qof) |>
+  distinct(icb_name) |>
+  nrow()
+```
+
+```{r}
+#| label: icb-stats
+#| include: false
+
+df_min_months <- df_tirzepatide_icb |>
+  filter(items > 0) |>
+  slice_min(month, by = icb_name)
+
+max_month <- df_min_months |> slice_max(month) |> distinct(month) |> pull()
+
+min_month <- df_min_months |> slice_min(month) |> distinct(month) |> pull()
+
+#### min and max prescribing rate at study end
+df_rateper1000_min <- df_tirzepatide_icb |>
+  filter(month == end_date) |>
+  slice_min(rateper1000)
+df_rateper1000_max <- df_tirzepatide_icb |>
+  filter(month == end_date) |>
+  slice_max(rateper1000)
+
+#### prescribing in first month
+df_min_months_stength <- df_tirzepatide_icb_strength |>
+  filter(items > 0) |>
+  slice_min(month, by = c(icb_name))
+
+min_25 <- df_min_months_stength |> filter(strength == "2.5mg / 0.6ml") |> nrow()
+
+min_5 <- df_min_months_stength |> filter(strength == "5mg / 0.6ml") |> nrow()
+
+min_75 <- df_min_months_stength |> filter(strength == "7.5mg / 0.6ml") |> nrow()
+
+
+#### min and max obesity rate at study end
+df_obesity_min <- df_tirzepatide_icb_qof |>
+  filter(month == end_date_qof) |>
+  mutate(obesity_rate = register / total_list_size) |>
+  slice_min(obesity_rate)
+
+df_obesity_max <- df_tirzepatide_icb_qof |>
+  filter(month == end_date_qof) |>
+  mutate(obesity_rate = register / total_list_size) |>
+  slice_max(obesity_rate)
+
+df_obesity_median <- df_tirzepatide_icb_qof |>
+  filter(month == end_date_qof) |>
+  mutate(obesity_rate = register / total_list_size) |>
+  summarise(median = median(obesity_rate))
+
+
+#### min and max prescribing rate of orlistat at study end
+df_orlistat_rateper1000_min <- df_orlistat_icb |>
+  filter(month == end_date) |>
+  slice_min(rateper1000)
+
+df_orlistat_rateper1000_max <- df_orlistat_icb |>
+  filter(month == end_date) |>
+  slice_max(rateper1000)
+```
+
+```{r}
+#| label: icb-obesity-stats
+#| include: false
+
+#### min and max prescribing rate at study end
+df_rateper1000_obesity_min <- df_tirzepatide_icb_qof |>
+  filter(month == end_date_qof) |>
+  slice_min(rateper1000register)
+df_rateper1000_obesity_max <- df_tirzepatide_icb_qof |>
+  filter(month == end_date_qof) |>
+  slice_max(rateper1000register)
+```
+
+```{r}
+#| label: practice-stats
+#| include: false
+
+df_min_months_practice <- df_tirzepatide_practice |>
+  filter(items > 0) |>
+  slice_min(month, by = practice)
+
+max_month_practice <- df_min_months_practice |>
+  slice_max(month) |>
+  distinct(month) |>
+  pull()
+
+min_month_practice <- df_min_months_practice |>
+  slice_min(month) |>
+  distinct(month) |>
+  pull()
+
+n_practice_max_month <- df_min_months_practice |>
+  filter(month == max_month_practice) |>
+  nrow()
+
+n_practice_min_month <- df_min_months_practice |>
+  filter(month == min_month_practice) |>
+  nrow()
+
+noprescrib <- df_tirzepatide_practice |>
+  filter(month == end_date) |>
+  slice_min(rateper1000) |>
+  filter(rateper1000 == 0) |>
+  nrow()
+
+#### min and max prescribing rate at study end
+df_rateper1000_min_practice <- df_tirzepatide_practice |>
+  filter(month == end_date, rateper1000 > 0) |>
+  slice_min(rateper1000)
+
+df_rateper1000_max_practice <- df_tirzepatide_practice |>
+  filter(month == end_date) |>
+  slice_max(rateper1000)
+
+
+####
+df_min_months_stength_practice <- df_tirzepatide_practice_strength |>
+  filter(items > 0) |>
+  slice_min(month, by = c(practice))
+
+min_25 <- df_min_months_stength |> filter(strength == "2.5mg / 0.6ml") |> nrow()
+
+min_5 <- df_min_months_stength |> filter(strength == "5mg / 0.6ml") |> nrow()
+
+min_5 <- df_min_months_stength |> filter(strength == "5mg / 0.6ml") |> nrow()
+
+
+### range per icb
+df_icb_range <- df_tirzepatide_practice |>
+  filter(month == end_date) |>
+  summarise(
+    .by = icb_name,
+    min = min(rateper1000),
+    max = max(rateper1000),
+    range = max - min
+  )
+
+min_icb_range <- df_icb_range |>
+  slice_min(range)
+
+max_icb_range <- df_icb_range |>
+  slice_max(range)
+```
+
+# Abstract (currently 246 / 250 words)
+
+## Background
+
+In England, tirzepatide was made available for weight management in primary care through the National Health Service (NHS) in June 2025. Integrated Care Boards (ICBs) are legally responsible for funding and managing the phased, local rollout of tirzepatide which may lead to variation in prescribing. Aim To describe trends and variation in tirzepatide prescribing in primary care across ICBs after tirzepatide was licensed for weight management.
+
+## Design and Setting
+
+Descriptive study using prescribing data from all NHS general practices in England between January 2023 and May 2026.
+
+## Method
+
+We analysed the following measures of tirzepatide prescribing: i) trends in monthly prescribing rates overall and by strength; ii) trends in monthly prescribing rates as a proportion of the Quality and Outcomes Framework obesity rate at ICB-level; iii) prescribing variation within ICBs. We also looked at trends in prescribing of orlistat as the only other weight loss medication licensed for use in primary care. .
+
+## Results
+
+Overall, tirzepatide prescribing increased from 3.34 in the first month of the rollout to 4.91 per 1,000 registered patients in May 2026. The prescribing rate per 1,000 patients by ICB ranged from 1.6 (NHS Dorset ICB) to 8.97 (NHS Cornwall and the Isles of Scilly ICB) in May 2026. Results changed little when adjusted for the obesity rate. Orlistat prescribing was very low over the entire study period.
+
+## Conclusion
+
+We found substantial variation in prescribing rates of tirzepatide by ICB, which may reflect differences in implementation of the rollout. This variation does not appear to be explained by variation in obesity rates within ICBs. The prescribing rate of orlistat does not appear to have meaningfully changed since the introduction of tirzepatide.
+
+## Keywords
+
+Primary Health Care, Tirzepatide, Orlistat, Glucagon-Like Peptide 1, Obesity Management, Drug Prescriptions 
+
+# Background
+
+As of the most recent Health Survey for England in 2022, 29% of adults in England were living with obesity and 35% were overweight.[(1)](https://paperpile.com/c/1uwW8C/hyBw) Excess body fat is associated with an increased risk of chronic conditions, including type 2 diabetes, cardiovascular disease, joint problems, mental health problems and some cancers.[(1)](https://paperpile.com/c/1uwW8C/hyBw) In addition, obesity is associated with substantial costs to the National Health Service (NHS), the publicly funded healthcare systems of the United Kingdom, and carries a high economic burden through reduced productivity and other health related costs.[(2)](https://paperpile.com/c/1uwW8C/251x)
+
+The National Institute for Health and Care Excellence (NICE) is the national health technology assessment body of England which makes recommendations on use of medicines in the NHS. NICE recommends the use of pharmaceutical interventions for weight management in some cases, including GLP-1 receptor agonists (RA) and lipase inhibitors.[(3)](https://paperpile.com/c/1uwW8C/unAj) 
+
+In England, prior to mid-2025 tirzepatide could only be prescribed for weight management through the NHS in specialist, and secondary care settings.[(4)](https://paperpile.com/c/1uwW8C/XAIy) Orlistat - another weight loss medication - has been available in primary care settings since 2001.[(5)](https://paperpile.com/c/1uwW8C/ZwUe) 
+
+Access to tirzepatide for weight management was introduced to the primary care setting via a cohorting and phasing approach where the qualifying comorbidities and BMI requirements are widened sequentially yearly starting in June 2025 and extending into  2028.[(6)](https://paperpile.com/c/1uwW8C/0JmC) Integrated Care Boards (ICBs) are legally responsible for funding and managing the phased, local rollout of tirzepatide based on NICE recommendations.
+
+Given the relative recency of the rollout to primary care, there is a lack of up-to-date, comprehensive real-world information about how tirzepatide is being prescribed through the NHS, with concerns there may be substantial geographic variation in accessibility. Therefore, our objectives were to: (1) describe trends in tirzepatide prescribing by GPs in England and how it varies across ICBs; (2) describe how tirzepatide prescribing varies by obesity rate at the level of ICBs and (3) describe the changes in orlistat prescribing following the introduction of tirzepatide.
+
+::: callout-note
+## Box 1 - Recommendations for pharmacotherapy for weight management in the NHS
+
+**Tirzepatide**
+
+**Timeline**
+
+October 2023:Tirzepatide was first made available as an option for treating type 2 diabetes in adults via NICE Technology Assessment 924.(7)
+
+December 2024: NICE technology appraisal TA1026 recommends the use of tirzepatide for obesity and weight management. TA1026 outlines a cohorting approach for the initial 3 years of implementation, from 2025–2028. Under this approach patient eligibility will increase in stages to approximately 220,000 patients after the first 3 years.(4)
+
+March 2025: NHS England published an interim commissioning guidance detailing eligible patient cohorts, prioritisation strategy and phased implementation of tirzepatide across specialist weight management services and primary care settings.(6)
+
+June 2025: Tirzepatide could be prescribed for weight management in primary care.
+
+**Recommended dosing regime**
+
+An initial 2.5 mg dose once weekly for 4 weeks, then increased to 5 mg once weekly for at least 4 weeks, then increased if necessary up to 15 mg once weekly, doses should be increased in steps of 2.5 mg at intervals of at least 4 weeks.(8)
+
+**Eligibility criteria**
+
+During the study period (Jun 2025 to May 2026) the eligibility criteria for weight management was:\
+≥4 ‘qualifying’ comorbidities (hypertension, dyslipidaemia, obstructive sleep apnoea, cardiovascular disease, and type 2 diabetes mellitus) BMI of either at least 40 kg/m2 or at least 37.5 kg/m2 for people from South Asian, Chinese, other Asian, Middle Eastern, Black African or African-Caribbean ethnic backgrounds.
+:::
+
+# Methods
+
+## Study Design
+
+We conducted a descriptive study using prescribing data from all NHS general practices in England between January 2023 and May 2026.
+
+## Data source
+
+### OpenPrescribing database
+
+We extracted data from the OpenPrescribing database. This imports openly accessible prescribing data from the monthly files published by the NHS Business Services Authority (NHSBSA), which contain data on cost and items prescribed for each month, for every typical GP in England since mid-2010.[(9)](https://paperpile.com/c/1uwW8C/KfvE) These data are sourced from community pharmacy claims data and, therefore, only contain dispensed items. We extracted dispensing data, as a proxy for prescribing data, for GPs, excluding other organizations such as prisons and hospitals according to the NHS Digital dataset of practice characteristics. We aggregated GP practice level data to ICB level. ICB level was assigned as the ICB at study end, and may not represent the practice ICB at the time of dispensing. We extracted the number of registered patients per practice, published by NHS Digital[(10)](https://paperpile.com/c/1uwW8C/w8NP), via OpenPrescribing.
+
+We defined tirzepatide using British National Formulary (BNF) codes starting 0601023AZ. Analyses were restricted to strengths included in the dosage in the marketing authorisation for tirzepatide (namely 2.5mg/0.6ml, 5mg/0.6ml, 7.5mg/0.6ml, 10mg/0.6ml, 12.5mg/0.6ml and 15mg/0.6ml).[(11)](https://paperpile.com/c/1uwW8C/cPFe) Tirzepatide is licensed for both type 2 diabetes and weight management. However, we cannot distinguish between indications based on formulation or strength.
+
+We defined orlistat using BNF codes starting 0405010P0. Analyses were restricted to 120mg strength as indicated in the NICE guidance for orlistat.[(12)](https://paperpile.com/c/1uwW8C/bImQ) Orlistat is only licensed for weight management.
+
+For both tirzepatide and orlistat, items are defined as the count of the number of times a medicine has been dispensed. Items do not take into account the quantity of medicine prescribed. 
+
+### Quality and Outcomes Framework
+
+We used the Quality and Outcomes Framework (QOF) register to calculate obesity prevalence by ICB. The QOF obesity domain indicator incentivises practices to identify and record obesity in patients 18 years and older. The indicator is defined as the proportion of adult patients registered at the practice whose most recent BMI recorded within the QOF reporting period meets the ethnicity-adjusted obesity threshold. The adjusted threshold for obesity is either a BMI ≥30 kg/m2  or ≥27.5 kg/m2 for people of South Asian, Chinese, other Asian, Middle Eastern, Black African or African-Caribbean family background. We downloaded QOF data via NHS Digital.[(13)](https://paperpile.com/c/1uwW8C/qZgA) QOF prevalence rates were available as yearly data extracts, with the reporting year 1 April to 31 March.  
+
+## Analysis
+
+We plotted monthly time series showing the rate of tirzepatide prescribing, at national and at ICB level, for i) the number of items per 1,000 registered patients and ii) the number of items per 1,000 QOF obesity register size. We then plotted the rate of prescribing of tirzepatide per 1,000 registered patients aggregated by strength at both national and at ICB level. We investigated variation of tirzepatide prescribing rates within ICBs by plotting individual practice rates of prescribing per 1,000 registered patients, alongside the within-ICB prescribing rate decile for the final study month, May 2026. 
+
+We plotted monthly time series showing the rate of orlistat prescribing, defined as the number of items per 1,000 registered patients, at national and at ICB level
+
+The study period was January 2023 to May 2026 for the rate per 1,000 registered patients analysis. The latest available QOF reported obesity prevalence was for the period 1 April 2024 to 31 March 2025. Analysis of prescribing rates per obesity prevalence was, therefore, restricted to January 2024 to December 2025 with the 2024/25 obesity prevalence as the denominator.
+
+## Software, code, and reproducibility
+
+Data management and analyses were conducted using R version 4.0.2. Code for data management and analysis, as well as codelists, are archived online (<https://github.com/andrewscolm/obesity_glp1>).
+
+# Results
+
+## Tirzepatide prescribing per 1,000 registered patients. 
+
+**Tirzepatide prescribing across England:** From `{r} formatted_date(start_date)` to `{r} formatted_date(end_date)` the number of patients registered to a practice in England increased from `{r} formatted_num(df_tirzepatide_england |> filter(month==start_date) |> pull(total_list_size))` to `{r} formatted_num(df_tirzepatide_england |> filter(month==end_date) |> pull(total_list_size))`. In total `{r} formatted_num(all_practices)` GP practices, from `{r} formatted_num(all_icb)` ICB were included in the study, decreasing from `{r} formatted_num(df_practice_counts |> filter(month==start_date) |> pull(n))` practices in `{r} formatted_date(start_date)`to `{r} formatted_num(df_practice_counts |> filter(month==end_date) |> pull(n))` in `{r} formatted_date(end_date)`. The NICE diabetes guidance was introduced in October 2023, and the first observed prescribing was `{r} formatted_date(df_tirzepatide_england |> filter(items>0) |> slice_min(month) |> pull(month))` (@fig-england-time-series). In the initial month after the NICE obesity guideline there was a temporary drop in tirzepatide prescribing before the prescribing rate increased. We saw transient dips in prescribing rate in August 2025 and October / November 2025. In `{r} formatted_date(end_date)` the national prescribing rate was `{r} formatted_decimal(df_tirzepatide_england |>filter(month==end_date) |> pull(rateper1000))` per 1,000 registered patients.
+
+**Tirzepatide prescribing across ICB:** The overall prescribing rate of tirzepatide varied both across ICB and within regions (@fig-icb-time-series). The timing of the first prescription ranged from `{r} formatted_date(min_month)` (21 ICBs) to `{r} formatted_date(max_month)` (NHS Derby and Derbyshire ICB and NHS Dorset ICB). The South West had the ICB with the lowest (NHS Dorset ICB) and the highest prescribing rate (NHS Cornwall & The Isles Of Scilly ICB). In `{r} formatted_date(end_date)` the prescribing rate by ICB ranged from `{r} formatted_decimal(df_rateper1000_min |> pull(rateper1000))` per 1,000 patients (`{r} icb_name_pretty(df_rateper1000_min |> pull(icb_name))`) to `{r} formatted_decimal(df_rateper1000_max |> pull(rateper1000))` per 1,000 patients (`{r} icb_name_pretty(df_rateper1000_max |> pull(icb_name))`). All ICBs other than NHS Derby and Derbyshire and NHS Staffordshire and Stoke-On-Trent (both Midlands) experienced either a temporary drop or flattening of prescribing rate immediately after tirzepatide was approved for weight management.
+
+**Tirzepatide prescribing by strength** Across England as a whole 5mg / 0.6ml was the most commonly prescribed strength of tirzepatide. Patients should be initiated on a dose of 2.5mg / 0.6ml. In the early months of the rollout we see that 2.5mg / 0.6ml was the most frequently prescribed before the higher doses are more commonly prescribed. Prescribing rates of the highest strength (15mg / 0.6ml) remain relatively low (@suppfig-tirzepatide_strength-england). There is a transient drop in the prescribing of all strengths of tirzepatide following the introduction of the NICE obesity guidance.
+
+There was considerable variation in prescribing rate for all strengths across each of the 42 Integrated Care Boards (@fig-icb-strength-time-series). All ICBs prescribed 2.5mg / 0.6ml strength within their first month of prescribing. `{r} min_5` of the 42 ICBs prescribed 5mg /0.6ml strength in their first month of prescribing. No ICB prescribed 7.5mg /0.6ml or stronger in their first month of prescribing. Typically as ICBs initiated tirzepatide prescribing 2.5mg / 0.6ml was the most commonly prescribed before 5mg / 0.6ml became more commonly prescribed. All practices had a lag between tirzepatide being licensed for diabetes (dashed vertical line) and initiating prescribing.
+
+**Tirzepatide prescribing within ICB.** Within the individual integrated care boards we saw considerable variation in the prescribing rates of individual practices (@fig-within-icb). The timing of the first prescription ranged from `{r} formatted_date(min_month_practice)` (`{r} n_practice_min_month` practices) to `{r} formatted_date(max_month_practice)` (`{r} n_practice_max_month` practices). `{r} icb_name_pretty(min_icb_range |> pull(icb_name))` had the smallest range in practice prescribing rate (`{r} min_icb_range$min ` - `{r} min_icb_range$max ` per 1,000 registered patients) and NHS `{r} icb_name_pretty(max_icb_range |> pull(icb_name))` had the largest range (`{r} max_icb_range$min ` - `{r} max_icb_range$max ` per 1,000 registered patients). In `{r} formatted_date(end_date)` `{r} noprescrib` practices did not prescribe any strength of tirzepatide. The prescribing rate by practice ranged from `{r} formatted_decimal(df_rateper1000_min_practice |> pull(rateper1000))` per 1,000 patients (`{r} icb_name_pretty(df_rateper1000_min_practice |> pull(practice))`) to `{r} formatted_decimal(df_rateper1000_max_practice |> pull(rateper1000))` per 1,000 patients (`{r} icb_name_pretty(df_rateper1000_max_practice |> pull(practice))`).
+
+## Tirzepatide prescribing per obesity register. 
+
+**Tirzepatide prescribing by obesity across England:** Some description of obesity graphs (@suppfig-obesity-england). In `{r} formatted_date(end_date_qof)` the prescribing rate was `{r} formatted_decimal(df_tirzepatide_england_qof |>filter(month==end_date_qof) |>pull(rateper1000register))` per 1,000 QOF obesity register size.
+
+**Tirzepatide prescribing by obesity across ICB:** The overall prescribing rate of tirzepatide varied both across ICBs and within regions (@suppfig-qof-icb). The South West had the ICB with the lowest (NHS Dorset ICB) and the highest prescribing rate (NHS Cornwall & The Isles Of Scilly ICB). In `{r} formatted_date(end_date_qof)` the prescribing rate by ICB ranged from `{r} formatted_decimal(df_rateper1000_obesity_min|> pull(rateper1000register))` per 1,000 patients (`{r} icb_name_pretty(df_rateper1000_obesity_min|> pull(icb_name))`) to `{r} formatted_decimal(df_rateper1000_obesity_max |> pull(rateper1000register))` per 1,000 patients (`{r} icb_name_pretty(df_rateper1000_obesity_max |> pull(icb_name))`). All ICB other than NHS Derby and Derbyshire and NHS Staffordshire and Stoke-On-Trent (both Midlands) experienced either a temporary drop or flattening of prescribing rate immediately after tirzepatide was approved for weight management.
+
+## Orlistat prescribing per 1,000 registered patients:
+
+Orlistat was consistently prescribed in all ICBs throughout the study period (@suppfig-orlistat-england). Prescribing rate of orlistat varied both across all ICBs and within regions (@suppfig-orlistat-icb). Orlistat 120mg prescribing rate was consistently lowest in NHS Northamptonshire. In `{r} formatted_date(end_date)` the prescribing rate of orlistat by ICB ranged from `{r} formatted_decimal(df_rateper1000_obesity_min  |> pull(rateper1000register))` per 1,000 patients (`{r} icb_name_pretty(df_rateper1000_obesity_min  |> pull(icb_name))`) to `{r} formatted_decimal(df_rateper1000_obesity_min  |> pull(rateper1000register))` per 1,000 patients (`{r} icb_name_pretty(df_rateper1000_obesity_max  |> pull(icb_name))`).
+
+# Discussion
+
+## Summary
+
+In this descriptive study using OpenPrescribing dispensing data we found substantial variation in prescribing rates of tirzepatide at ICB and regional level. We found similar levels of variation when accounting for the QOF obesity register list size. Orlistat prescribing was low throughout the study period, and the introduction of tirzepatide did not appear to impact on its prescribing. To our knowledge this is the first national study to investigate the use of weight loss medications in primary care in England. Lack of access to tirzepatide via primary care has led to concerns about a rise in people seeking illegally supplied medications with potentially dangerous side-effects.[(14)](https://paperpile.com/c/1uwW8C/exfk) 
+
+## Strengths and limitations
+
+This data includes all prescribing in all typical general practices in England, thus minimising the potential for obtaining a biased sample. This study investigated dispensing of medications prescribed in a primary care setting only. It does not capture prescribing via tier 3 weight management services or via private prescribing. OpenPrescribing data consists of the openly available English Prescribing dataset (EPD) which is aggregated at practice level and not linked with person-level data. As such we are unable to investigate the impact of factors, such as inequalities, on prescribing rates.  EHR data can be used to identify, and characterise health inequalities; detect geographic variations in treatment; identify unmet need; support cost-effectiveness analyses and monitor adherence to guidelines. However, rich, detailed person-level data from nationally representative sources such as OpenSAFELY[(15)](https://paperpile.com/c/1uwW8C/KqFr) is required to fully investigate the impact of inequalities on prescribing rates.
+
+The eligibility criteria for the QOF obesity register is not consistent year to year, with manyQOF indicators suspended between 2021 and April 2022[(16)](https://paperpile.com/c/1uwW8C/n4IE). Therefore, we focussed on the most recent year only and were unable to look at QOF obesity register dates over multiple years.
+
+## Comparison with existing literature
+
+Data obtained by BMJ via a freedom of access request showed that in the first two months of roll out just 18 of 42 ICBs had started prescribing tirzepatide[(17)](https://paperpile.com/c/1uwW8C/y9SE). eight of England’s 42 ICBs after 6 months [(14)](https://paperpile.com/c/1uwW8C/exfk).
+
+Nationally representative household survey, January–March 2025 (n = 5893)[(18)](https://paperpile.com/c/1uwW8C/YWpd) 
+
+## Implications for research and/or practice
+
+OpenPrescribing data allows us to investigate patterns of prescribing. However, to investigate important factors such as inequalities in healthcare provision would require data linked to individual patient characteristics. This would also enable the differentiation of prescribing indications for medications with multiple therapeutic uses, such as tirzepatide. We have a planned programme of work looking at the prescribing patterns of weight management drugs using linked Electronic Healthcare Records (EHR) data via the OpenSAFELY platform (<https://www.opensafely.org/>).
+
+# Figures
+
+```{r}
+#| label: figures-setup
+#| include: false
+
+library(tidyverse)
+library(patchwork)
+library(glue)
+library(here)
+library(scales)
+library(rio)
+library(ggiraph)
+
+source(here("analysis", "functions", "plot_functions.R"))
+source(here("analysis", "design", "design.r"))
+
+
+legend_levels <- rev(c("Mean", "Median", "IQR Low", "IQR High", "ICB"))
+text_size <- 20
+
+# Set dates ----
+
+plot_date_breaks <- c(
+  seq(as.Date("2023-01-01"), as.Date("2026-05-01"), "6 months"),
+  as.Date("2026-05-01")
+)
+
+# Load data ----
+
+df_regions <- rio::import(here("data", "op_df_regional_teams.parquet")) %>%
+  mutate(
+    region = tools::toTitleCase(str_to_lower(gsub(
+      " COMMISSIONING REGION",
+      "",
+      name
+    )))
+  ) %>%
+  select(code, region)
+
+df_tirzepatide_icb_month <- rio::import(here(
+  "data",
+  "df_tirzepatide_icb.parquet"
+)) %>%
+  mutate(
+    icb_name = tools::toTitleCase(str_to_lower(gsub(
+      "NHS | INTEGRATED CARE BOARD",
+      "",
+      icb_name
+    )))
+  ) %>%
+  left_join(df_regions, by = c("regional_team" = "code"))
+
+
+df_tirzepatide_icb_month_qof <- rio::import(here(
+  "data",
+  "df_tirzepatide_icb_qof.parquet"
+)) %>%
+  mutate(
+    icb_name = tools::toTitleCase(str_to_lower(gsub(
+      "NHS | INTEGRATED CARE BOARD",
+      "",
+      icb_name
+    )))
+  ) %>%
+  left_join(df_regions, by = c("regional_team" = "code"))
+
+
+df_tirzepatide_icb_strength_month <- rio::import(here(
+  "data",
+  "df_tirzepatide_icb_strength.parquet"
+)) %>%
+  mutate(
+    icb_name = tools::toTitleCase(str_to_lower(gsub(
+      "NHS | INTEGRATED CARE BOARD",
+      "",
+      icb_name
+    )))
+  ) %>%
+  left_join(df_regions, by = c("regional_team" = "code"))
+
+
+df_tirzepatide_england_strength <- df_tirzepatide_england_strength %>%
+  mutate(
+    icb_name = "",
+    region = ""
+  )
+
+df_tirzepatide_england <- df_tirzepatide_england %>%
+  mutate(icb_name = "", region = "")
+
+df_orlistat_england <- df_orlistat_england %>%
+  mutate(icb_name = "", region = "")
+
+df_orlistat_icb_month <- df_orlistat_icb %>%
+  mutate(
+    icb_name = tools::toTitleCase(str_to_lower(gsub(
+      "NHS | INTEGRATED CARE BOARD",
+      "",
+      icb_name
+    )))
+  ) %>%
+  left_join(df_regions, by = c("regional_team" = "code"))
+
+
+df_tirzepatide_practice_qof <-
+  rio::import(here(
+    "data",
+    "df_tirzepatide_practice_qof.parquet"
+  )) |>
+  mutate(icb_name = icb_name_pretty(icb_name))
+
+df_gp_names <-
+  rio::import(here(
+    "data",
+    "op_df_gp_practices.parquet"
+  )) |>
+  select(code, name)
+
+df_tirzepatide_practice_qof <- df_tirzepatide_practice_qof |>
+  left_join(df_gp_names, by = join_by(practice == code)) |>
+  mutate(name = glue("{icb_name_pretty(name)}, {icb_name_pretty(icb_name)}"))
+
+
+icb_summary_colors <- c(
+  get_color_palette("icb_summary")
+)
+```
+
+## Figure 1
+
+```{r}
+#| label: fig-england-time-series
+#| fig-cap: Tirzepatide prescribing rates for England per 1,000 registered patients. The dashed line indicates the date that NICE Technology appraisal guidance (TA924) recommended tirzepatide as an option for treating type 2 diabetes. The dotted line indicates the date that NICE Technology appraisal guidance (TA1026) recommended tirzepatide as an option for obesity and weight management. 
+#| fig-width: 18
+#| fig-height: 15
+
+all_england_plot <- ggplot(
+  df_tirzepatide_england,
+  aes(x = month, y = rateper1000)
+) +
+  geom_line(color = "#e84a5f") +
+  geom_vline(
+    aes(
+      xintercept = as.POSIXct(date_tirzepatide_diab),
+      linetype = "NICE Diabetes Guidance"
+    ),
+    color = "grey40",
+    alpha = 1,
+    linewidth = 1.2,
+  ) +
+  geom_vline(
+    aes(
+      xintercept = as.POSIXct(date_tirzepatide_ng),
+      linetype = "NICE Weight Management Guidance"
+    ),
+    color = "grey40",
+    alpha = 1,
+    linewidth = 1.2
+  ) +
+  scale_color_manual(
+    values = icb_summary_colors,
+  ) +
+  scale_linetype_manual(
+    values = c(
+      "NICE Diabetes Guidance" = "dotted",
+      "NICE Weight Management Guidance" = "dashed"
+    ),
+    breaks = c(
+      "NICE Diabetes Guidance",
+      "NICE Weight Management Guidance"
+    )
+  ) +
+  scale_x_date(
+    breaks = plot_date_breaks,
+    labels = date_format("%b %Y")
+  ) +
+  scale_y_continuous(limits = c(0, NA)) +
+  theme_bw() +
+  theme(
+    legend.title = element_blank(),
+    legend.text = element_text(size = text_size),
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    axis.text = element_text(size = text_size),
+    axis.title.y = element_text(size = text_size)
+  ) +
+  guides(
+    color = guide_legend(reverse = TRUE),
+    linetype = guide_legend(
+      nrow = 2,
+      order = 2,
+    ),
+    linewidth = "none",
+    alpha = "none"
+  ) +
+  xlab("") +
+  ylab("Rate per 1000 registered patients")
+
+all_england_plot
+```
+
+## Figure 2
+
+```{r}
+#| label: fig-icb-time-series
+#| fig-cap: Tirzepatide prescribing rates per 1,000 registered patients by Integrated Care Board. The dashed line indicates the date that NICE Technology appraisal guidance (TA924) recommended tirzepatide as an option for treating type 2 diabetes. The dotted line indicates the date that NICE Technology appraisal guidance (TA1026) recommended tirzepatide as an option for obesity and weight management. 
+#| fig-width: 35
+#| fig-height: 25
+
+plot2 <- plot_by_icb_sorted_by_region_with_background(
+  df = df_tirzepatide_icb_month,
+  plot_expr = expr(
+    plot_icb_with_background_color(
+      df = df,
+      icb_name = icb_name,
+      x_axis_text = add_x_axis_text,
+      y_axis_text = add_y_axis_text
+    )
+  ),
+  line_legend = get_col_pal_legend(palette_names = "icb_3"),
+  save_png = F
+)
+
+print(plot2[[1]])
+```
+
+## Figure 3
+
+```{r}
+#| label: fig-icb-strength-time-series
+#| fig-cap: Tirzepatide prescribing rates per 1,000 registered patients by ICB aggregated by strength. The dashed line indicates the date that NICE Technology appraisal guidance (TA924) recommended tirzepatide as an option for treating type 2 diabetes. The dotted line indicates the date that NICE Technology appraisal guidance (TA1026) recommended tirzepatide as an option for obesity and weight management.
+#| fig-width: 35
+#| fig-height: 25
+
+plot3 <- plot_by_icb_sorted_by_region_with_background(
+  df = df_tirzepatide_icb_strength_month,
+  plot_expr = expr(
+    plot_icb_tirzepatide_strength(
+      df = df,
+      icb_name = icb_name,
+      x_axis_text = add_x_axis_text,
+      y_axis_text = add_y_axis_text
+    )
+  ),
+  line_legend = get_col_pal_legend(palette_names = "tirz_strength_5")
+)
+
+
+print(plot3[[1]])
+```
+
+## Figure 4
+
+```{r}
+#| label: fig-within-icb
+#| fig-cap: Variation of tirzepatide prescribing rates within ICBs for May 2026, the final month of data. Each dot represents a practice, the intensity of blue indicates the within-ICB decile. 
+#| fig-width: 18
+#| fig-height: 15
+
+# Import data ----
+df_tirzepatide_practice <- rio::import(here(
+  "data",
+  "df_tirzepatide_practice.parquet"
+)) %>%
+  filter(month == as.Date("2025-05-01")) %>%
+  mutate(
+    icb_name = as.factor(tools::toTitleCase(str_to_lower(gsub(
+      "NHS | INTEGRATED CARE BOARD",
+      "",
+      icb_name
+    )))),
+    rate_plot = rateper1000, #pmin(rateper1000, max_rate_for_plot),
+    icb_name = fct_reorder(icb_name, rate_plot, .desc = TRUE),
+    icb_y = as.numeric(icb_name)
+  )
+
+# max_rate_for_plot <- 25
+max_rate_for_plot <- max(df_tirzepatide_practice$rateper1000)
+bar_height <- 0.55
+jitter_height <- 0.08
+
+decile_cols <- c(
+  "0-10%" = "white",
+  "10-20%" = "#E1F0F8",
+  "20-30%" = "#C8E4F3",
+  "30-40%" = "#9BCDE8",
+  "40-50%" = "#5A9DCA",
+  "50-60%" = "#5A9DCA",
+  "60-70%" = "#9BCDE8",
+  "70-80%" = "#C8E4F3",
+  "80-90%" = "#E1F0F8",
+  "90-100%" = "white"
+)
+
+decile_labels <- names(decile_cols)
+icb_levels <- levels(df_tirzepatide_practice$icb_name)
+
+# Settings ----
+
+# 2. Create shared quantile boundaries for each icb ----
+
+rect_df <- df_tirzepatide_practice %>%
+  group_by(icb_name, icb_y) %>%
+  summarise(
+    q = list(quantile(
+      rate_plot,
+      probs = seq(0, 1, by = 0.1),
+      na.rm = TRUE,
+      names = FALSE,
+      type = 7
+    )),
+    .groups = "drop"
+  ) %>%
+  unnest_wider(q, names_sep = "_") %>%
+  rename(
+    q0 = q_1,
+    q10 = q_2,
+    q20 = q_3,
+    q30 = q_4,
+    q40 = q_5,
+    q50 = q_6,
+    q60 = q_7,
+    q70 = q_8,
+    q80 = q_9,
+    q90 = q_10,
+    q100 = q_11
+  ) %>%
+  pivot_longer(
+    cols = starts_with("q"),
+    names_to = "q_name",
+    values_to = "boundary"
+  ) %>%
+  mutate(
+    q_num = as.numeric(gsub("q", "", q_name))
+  ) %>%
+  arrange(icb_name, q_num) %>%
+  group_by(icb_name, icb_y) %>%
+  mutate(
+    xmin = boundary,
+    xmax = lead(boundary),
+    decile_label = decile_labels[row_number()]
+  ) %>%
+  filter(!is.na(xmax)) %>%
+  ungroup() %>%
+  mutate(
+    decile_label = factor(decile_label, levels = decile_labels),
+    ymin = icb_y - bar_height / 2,
+    ymax = icb_y + bar_height / 2
+  )
+
+# 3. Plot ----
+
+decile_labels <- names(decile_cols)
+icb_levels <- levels(df_tirzepatide_practice$icb_name)
+
+ggplot() +
+  geom_rect(
+    data = rect_df,
+    aes(
+      xmin = xmin,
+      xmax = xmax,
+      ymin = ymin,
+      ymax = ymax,
+      fill = decile_label
+    ),
+    alpha = 0.75,
+    color = NA
+  ) +
+  geom_point(
+    data = df_tirzepatide_practice,
+    aes(x = rate_plot, y = icb_y),
+    position = position_jitter(height = jitter_height, width = 0),
+    size = 0.6,
+    alpha = 0.35,
+    color = "black"
+  ) +
+  scale_fill_manual(
+    values = decile_cols,
+    breaks = decile_labels,
+    drop = FALSE
+  ) +
+  scale_y_continuous(
+    breaks = seq_along(icb_levels),
+    labels = icb_levels,
+    expand = expansion(mult = c(0.01, 0.01))
+  ) +
+  scale_x_continuous(
+    trans = pseudo_log_trans(sigma = 0.1),
+    breaks = c(0, 0.1, 0.5, 1, 2, 5, 10, 20, 30),
+    labels = number_format(accuracy = 0.1),
+    # limits = c(0, max_rate_for_plot),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  labs(
+    x = "Tirzepatide prescribing rate per 1000",
+    y = NULL,
+    fill = "Within-icb decile"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    legend.title.position = "top",
+  )
+```
+
+# Supplementary plots
+
+# Supplementary Figure 1
+::: {#suppfig-tirzepatide_strength-england}
+```{r}
+#| fig-width: 18
+#| fig-height: 15
+
+tirzepatide_strength_plot <- plot_by_icb_sorted_by_region_with_background(
+  df = df_tirzepatide_england_strength,
+  plot_expr = expr(
+    plot_icb_tirzepatide_strength(
+      df = df,
+      icb_name = icb_name,
+      x_axis_text = add_x_axis_text,
+      y_axis_text = add_y_axis_text
+    )
+  ),
+  line_legend = get_col_pal_legend(palette_names = "tirz_strength_5")
+)
+
+tirzepatide_strength_plot[[1]]
+```
+
+:::
+
+::: {#suppfig-obesity-england}
+```{r}
+#| fig-width: 18
+#| fig-height: 15
+
+all_england_obesity_plot <- ggplot(
+  df_tirzepatide_england_qof,
+  aes(x = month, y = rateper1000register)
+) +
+  geom_line(color = "#e84a5f") +
+  scale_x_date(
+    limits = c(start_date_qof, end_date_qof),
+    labels = date_format("%b %Y")
+  ) +
+  scale_y_continuous(limits = c(0, NA)) +
+  theme_bw() +
+  theme(
+    legend.title = element_blank(),
+    legend.text = element_text(size = text_size),
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    axis.text = element_text(size = text_size),
+    axis.title.y = element_text(size = text_size)
+  ) +
+  guides(
+    color = guide_legend(reverse = TRUE),
+    linetype = guide_legend(
+      nrow = 2,
+      order = 2,
+    ),
+    linewidth = "none",
+    alpha = "none"
+  ) +
+  xlab("") +
+  ylab("Rate per 1000 obesity registered patients")
+
+all_england_obesity_plot
+```
+
+Tirzepatide prescribing rates for England per 1,000 obesisty registered patients. 
+:::
+
+::: {#suppfig-qof-icb}
+```{r}
+#| fig-width: 35
+#| fig-height: 25
+
+df_tirzepatide_icb_month_qof <- df_tirzepatide_icb_month_qof |>
+  mutate(rateper1000 = rateper1000register)
+
+
+plot4 <- plot_by_icb_sorted_by_region_with_background(
+  df = df_tirzepatide_icb_month_qof,
+  plot_expr = expr(
+    plot_icb_with_background_color(
+      df = df,
+      icb_name = icb_name,
+      x_axis_text = add_x_axis_text,
+      y_axis_text = add_y_axis_text
+    )
+  )
+) &
+  scale_x_date(
+    limits = c(start_date_qof, end_date_qof),
+    labels = date_format("%b %Y")
+  )
+
+print(plot4[[1]])
+```
+Variation of tirzepatide prescribing rates within ICBs for May 2026, the final month of data. Each dot represents a practice, the intensity of blue indicates the within-ICB decile. 
+:::
+
+
+
+
+::: {#suppfig-orlistat-england}
+```{r}
+#| fig-width: 18
+#| fig-height: 15
+
+orlistat_england_plot <- plot_by_icb_sorted_by_region_with_background(
+  df = df_orlistat_england,
+  plot_expr = expr(
+    plot_icb_with_background_color(
+      df = df,
+      icb_name = icb_name,
+      x_axis_text = add_x_axis_text,
+      y_axis_text = add_y_axis_text
+    )
+  ),
+  plot_line_legend = F,
+  plot_region_legend = F
+)
+
+orlistat_england_plot[[1]]
+```
+Orlistat prescribing rates for England per 1,000 obesisty registered patients. 
+:::
+
+
+::: {#suppfig-orlistat-icb}
+```{r}
+#| fig-width: 35
+#| fig-height: 25
+
+orlistat_icb_plot <- plot_by_icb_sorted_by_region_with_background(
+  df = df_orlistat_icb_month,
+  plot_expr = expr(
+    plot_icb_with_background_color(
+      df = df,
+      icb_name = icb_name,
+      x_axis_text = add_x_axis_text,
+      y_axis_text = add_y_axis_text
+    )
+  ),
+  line_legend = get_col_pal_legend(palette_names = "icb_3")
+)
+
+
+orlistat_icb_plot[[1]]
+```
+Orlistat prescribing rates per 1,000 obesisty registered patients by ICB. 
+:::
+

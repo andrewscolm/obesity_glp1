@@ -30,7 +30,6 @@ library(arrow)
 
 source(here("analysis", "design", "design.r"))
 source(here("analysis", "functions", "utils.r"))
-source(here("analysis", "functions", "functions.r"))
 
 
 df_practice_counts <- read_parquet(
@@ -57,6 +56,14 @@ df_tirzepatide_england_strength <- read_parquet(
   here("data", "df_tirzepatide_england_strength.parquet")
 )
 
+
+df_tirzepatide_england_qof <- read_parquet(
+  here("data", "df_tirzepatide_england_qof.parquet")
+)
+
+df_tirzepatide_icb_qof <- read_parquet(
+  here("data", "df_tirzepatide_icb_qof.parquet")
+)
 
 df_orlistat_icb <- read_parquet(
   here("data", "df_orlistat_icb.parquet")
@@ -100,6 +107,8 @@ df_tirzepatide_practice_strength_qof <- read_parquet(
 )
 
 all_practices <- readRDS(here("data", "all_practices.rds"))
+
+all_icb <- tirzepatide_dfs$practice |> distinct(icb_name) |> nrow()
 ```
 
 
@@ -213,49 +222,17 @@ no_prescribe_icb <- no_prescribe |> distinct(icb_name)
 
 df_tirzepatide_practice_prescribe <- df_tirzepatide_practice |>
   filter(month == end_date) |>
-  filter(rateper1000 > 0)
+  slice_max(rateper1000)
 
-min_max_tirzepatide_practice <- min_max(
-  df_tirzepatide_practice_prescribe,
-  "rateper1000",
-  end_date
-)
-
-
-df_icb_prescribe_range <- df_tirzepatide_practice_prescribe |>
-  summarise(
-    min = min(rateper1000),
-    max = max(rateper1000),
-    range = max - min,
-    .by = c(icb_code, icb_name)
-  )
-df_icb_prescribe_range_min <- df_icb_prescribe_range |> slice_min(range)
-df_icb_prescribe_range_max <- df_icb_prescribe_range |> slice_max(range)
-
-# min_max_icb <- function(df, rate, end_month) {
-#   df_end <- df |>
-#     filter(month == end_month)
-
-#   min <- df_end |>
-#     group_by(c(ib_code,icb_name)) |>
-#     slice_min(.data[[rate]]) |>
-#     mutate("{rate}" := formatted_decimal(.data[[rate]]))
-
-#   max <- df_end |>
-#     slice_max(.data[[rate]]) |>
-#     mutate("{rate}" := formatted_decimal(.data[[rate]]))
-
-#   list(
-#     min = min,
-#     max = max
-#   )
-# }
+#### min and max prescribing rate of orlistat at study end
+df_orlistat_rateper1000_min <- df_orlistat_icb |>
+  filter(month == end_date) |>
+  slice_min(rateper1000)
+df_orlistat_rateper1000_max <- df_orlistat_icb |>
+  filter(month == end_date) |>
+  slice_max(rateper1000)
 ```
 
+ICB:
+The overall prescribing rate of tirzepatide varied both across ICBs and within regions (Fig 2). The timing of the first prescription ranged from `{r} formatted_date(min_month)` (21 ICBs) to `{r} formatted_date(max_month)` (NHS Derby and Derbyshire ICB and NHS Dorset ICB). In `{r} formatted_date(end_date)` the prescribing rate by ICB ranged from `{r} formatted_decimal(df_rateper1000_min |> pull(rateper1000))` per 1,000 patients (`{r} df_rateper1000_min |> pull(icb_name)`) to `{r} formatted_decimal(df_rateper1000_max |> pull(rateper1000))` per 1,000 patients (`{r} df_rateper1000_max |> pull(icb_name)`). All ICBs other than NHS Derby and Derbyshire and NHS Staffordshire and Stoke-On-Trent (both Midlands) experienced either a temporary drop or flattening of prescribing rate immediately after tirzepatide was approved for weight management. We saw a similar pattern for tirzepatide prescribing per 1,000 QOF obesity register size. In `{r} formatted_date(end_date)` the prescribing rate per 1,000 QOF obesity register size for tirzepatide ranged from 0.0755 to 0.0134 (NHS Cornwall and the Isles of Scilly Integrated Care Board and NHS Dorset Integrated Care Board, respectively). (Supplementary Fig S2:). 
 
-Within the individual integrated care boards we saw considerable variation in the prescribing rates of individual practices.  In `{r} formatted_date(end_date)` `{r} no_prescribe_practices |> nrow()` practices from `{r} no_prescribe_icb |> nrow()`  ICBs did not prescribe tirzepatide (`{r} collapse_and(no_prescribe_icb)`). Of practices that did prescribe, the prescribing rate of any strength of tirzepatide ranged from `{r} min_max_tirzepatide_practice$min$rateper1000` per 1,000 registered patients (`{r} min_max_tirzepatide_practice$min$prac_name`, `{r} min_max_tirzepatide_practice$min$icb_name` [QF7]) to `{r} min_max_tirzepatide_practice$max$rateper1000` per 1,000 registered patients (`{r} min_max_tirzepatide_practice$max$prac_name`, `{r} min_max_tirzepatide_practice$max$icb_name`). `{r} df_icb_prescribe_range_min$icb_name` had the smallest range in practice prescribing rate (`{r} formatted_decimal(df_icb_prescribe_range_min$min)` - `{r} formatted_decimal(df_icb_prescribe_range_min$max)` per 1,000 registered patients) and `{r} df_icb_prescribe_range_max$icb_name` had the largest range (`{r} formatted_decimal(df_icb_prescribe_range_max$min)` - `{r} formatted_decimal(df_icb_prescribe_range_max$max)` per 1,000 registered patients).
-
-
-## Orlistat prescribing per 1,000 registered patients.
-
-Orlistat was consistently prescribed in all ICBs throughout the study period (Figure 4). Prescribing rate of orlistat varied both across all ICBs and within regions (Fig 3). Orlistat 120mg prescribing rate was consistently lowest in NHS Northamptonshire. In `{r} formatted_date(end_date)` the prescribing rate of 120mg orlistat ranged from `{r} min_max_orlistat$min$rateper1000` to `{r} min_max_orlistat$max$rateper1000` per 1,000 (`{r} min_max_orlistat$min$icb_name` and `{r} min_max_orlistat$max$icb_name` respectively). 
