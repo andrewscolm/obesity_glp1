@@ -104,7 +104,7 @@ df_stp_names <- read_parquet(
 )
 
 df_qof_ob <- read_csv(here::here("data", "qof", "prevalence.csv")) |>
-  filter(year == "2024-25") |>
+  filter(year == "2025-26") |>
   select(practice_code, register)
 ```
 
