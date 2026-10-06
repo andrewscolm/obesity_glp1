@@ -1,0 +1,596 @@
+---
+author: Colm Andrews
+title: OpenPrescribing Tirzepatide Obesity
+sidebar: 
+comments:
+  hypothesis: true
+execute: 
+  echo: true
+  warning: false
+  message: false
+format:
+  html: 
+    toc: true
+    colorlinks: true
+    number-sections: false
+    fig-pos: H
+    code-fold: true
+    smooth-scroll: true
+    respect-user-color-scheme: true
+    theme:
+     light: cosmo
+     dark: cyborg
+    lightbox: false
+---
+
+```{r}
+#| label: load-packages
+#| include: false
+
+library(dplyr)
+library(readr)
+library(here)
+library(glue)
+library(tidyr)
+library(stringr)
+library(scales) ## format label_number
+library(gt) ## gt table
+library(ggplot2)
+library(lubridate) # interval
+library(arrow)
+library(ggiraph)
+```
+
+
+```{r}
+#| label: import_design_files
+
+source(here("analysis", "design", "design.r"))
+source(here("analysis", "functions", "functions.r"))
+source(here("analysis", "functions", "utils.r"))
+source(here("analysis", "functions", "plot_functions.r"))
+```
+
+```{r}
+#| label: load-data
+#| include: false
+
+df_regions <- rio::import(here("data", "op_df_regional_teams.parquet")) %>%
+  mutate(
+    region = tools::toTitleCase(str_to_lower(gsub(
+      " COMMISSIONING REGION",
+      "",
+      name
+    )))
+  ) %>%
+  select(code, region)
+
+
+df_tirzepatide_icb_month_qof <- read_parquet(
+  here("data", "df_tirzepatide_icb_qof.parquet")
+) %>%
+  left_join(df_regions, by = c("regional_team" = "code")) |>
+  mutate(
+    icb_name_region = glue(
+      "{icb_name_pretty(icb_name)}, {icb_name_pretty(region)}"
+    ),
+    icb_name = icb_name_pretty(icb_name)
+  )
+
+df_gp_names <-
+  rio::import(here(
+    "data",
+    "op_df_gp_practices.parquet"
+  )) |>
+  select(code, name)
+
+
+df_tirzepatide_practice_qof <-
+  rio::import(here(
+    "data",
+    "df_tirzepatide_practice_qof.parquet"
+  ))
+
+df_tirzepatide_practice_qof <- df_tirzepatide_practice_qof |>
+  left_join(df_gp_names, by = join_by(practice == code)) |>
+  mutate(name = glue("{icb_name_pretty(name)}, {icb_name_pretty(icb_name)}"))
+
+text_size <- 20
+```
+
+Ths quarto contains some options for utilising the obesity prevalence rate to help understand regional variation in tirzepatide prescribing rate. The goal is to understand what factors could partially explain the ICB-level variation (e.g. is it about the practices? or differences in obesity rates?)
+
+
+Plotting the prescribing rate per 1000 registered patients by rate per 1000 obesity registered patients allows us to see how consistent an ICB's prescribing rate is with either denominator (@fig-icb-rate-by-rate).  
+
+```{r}
+#| label: fig-icb-rate-by-rate
+#| fig-cap: Prescribing rate per 1000 registered patients by rate per 1000 obesity registered patient
+#| fig-width: 18
+#| fig-height: 15
+
+#### Obesity rate by registered rate ICB-level
+
+df_tirzepatide_qof_plot <- df_tirzepatide_icb_month_qof |>
+  filter(month == end_date_qof) |>
+  mutate(icb_name = icb_name_pretty(icb_name))
+
+ob_reg_plot <- ggplot(
+  df_tirzepatide_qof_plot,
+  aes(x = rateper1000register, y = rateper1000, fill = region)
+) +
+  geom_point_interactive(
+    aes(tooltip = icb_name_region, data_id = region, colour = region),
+    size = 3,
+  ) +
+  theme_bw() +
+  theme(
+    legend.title = element_blank(),
+    legend.text = element_text(size = text_size),
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.box = "horizontal",
+    axis.text = element_text(size = text_size),
+    axis.title = element_text(size = text_size)
+  ) +
+  xlab("Tirzepatide prescribing rate per 1000 obesity registered patients") +
+  ylab("Tirzepatide prescribing rate per 1000 registered patients")
+
+girafe(
+  ggobj = ob_reg_plot,
+  options = list(
+    opts_zoom(min = 1, max = 5, duration = 300, default_on = FALSE),
+    opts_hover(css = ''),
+    opts_hover_inv(css = "opacity:0.05;"),
+    opts_toolbar(position = "topleft", hidden = c("saveaspng"))
+  )
+)
+```
+
+We see that there is a bit of swapping in the middle but it is fairly well correlated.
+
+This can also be visualised using the obesity prevalence instead of the prescribing rate per 1000 obesity registered patients (@fig-icb-rate-by-prevalence):
+
+```{r}
+#| label: fig-icb-rate-by-prevalence
+#| fig-cap: Prescribing rate per obesity prevalence by obesity register size
+#| fig-width: 18
+#| fig-height: 15
+
+#### Obesity prevalence by registered rate ICB-level
+
+ob_reg_plot_obsize <- ggplot(
+  df_tirzepatide_qof_plot,
+  aes(x = register, y = rateper1000, fill = region)
+) +
+  geom_point_interactive(
+    aes(tooltip = icb_name_region, data_id = region, colour = region),
+    size = 3,
+  ) +
+  theme_bw() +
+  theme(
+    legend.title = element_blank(),
+    legend.text = element_text(size = text_size),
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.box = "horizontal",
+    axis.text = element_text(size = text_size),
+    axis.title = element_text(size = text_size)
+  ) +
+  xlab("Obesity register size") +
+  ylab("Tirzepatide prescribing rate per 1000 registered patients")
+
+girafe(
+  ggobj = ob_reg_plot_obsize,
+  options = list(
+    opts_zoom(min = 1, max = 5, duration = 300, default_on = FALSE),
+    opts_hover(css = ''),
+    opts_hover_inv(css = "opacity:0.05;"),
+    opts_toolbar(position = "top", hidden = c("saveaspng"))
+  )
+)
+```
+
+
+There is substantial variation at practice level and a very long tail of high prescribers which isn't apparent in the ICB breakdown (@fig-practice-rate-by-rate):
+
+```{r}
+#| label: fig-practice-rate-by-rate
+#| fig-cap: Prescribing rate per 1000 registered patients by rate per 1000 obesity registered patient
+#| fig-width: 18
+#| fig-height: 15
+
+#### Obesity rate by registered rate practce-level
+
+df_tirzepatide_qof_practice_plot <- df_tirzepatide_practice_qof |>
+  filter(month == end_date_qof)
+
+plot_tirzepatide_qof_practice <- ggplot(
+  df_tirzepatide_qof_practice_plot,
+  aes(x = rateper1000register, y = rateper1000, colour = icb_name)
+) +
+  geom_point_interactive(
+    aes(tooltip = name, data_id = icb_name, colour = icb_name),
+    size = 3,
+  ) +
+  theme_bw() +
+  theme(
+    legend.title = element_blank(),
+    legend.text = element_text(size = 8),
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.box = "horizontal",
+    axis.text = element_text(size = text_size),
+    axis.title = element_text(size = text_size)
+  ) +
+  xlab("Tirzepatide prescribing rate per 1000 obesity register") +
+  ylab("Tirzepatide prescribing rate per 1000 registered patients")
+
+
+girafe(
+  ggobj = plot_tirzepatide_qof_practice,
+  options = list(
+    opts_zoom(min = 1, max = 5, duration = 300, default_on = FALSE),
+    opts_hover(css = ''),
+    opts_hover_inv(css = "opacity:0.05;"),
+    opts_toolbar(position = "topleft", hidden = c("saveaspng"))
+  )
+)
+```
+
+This can be shown by using the obesity prevalence instead of the prescribing rate per 1000 obesity registered patients (@fig-practice-rate-by-prevalence):
+
+```{r}
+#| label: fig-practice-rate-by-prevalence
+#| fig-cap: Prescribing rate per 1000 registered patients by obesity register size
+#| fig-width: 18
+#| fig-height: 15
+
+#### Obesity rate by registered rate practce-level
+
+plot_tirzepatide_qof_practice_obsize <- ggplot(
+  df_tirzepatide_qof_practice_plot,
+  aes(x = register, y = rateper1000, colour = icb_name)
+) +
+  geom_point_interactive(
+    aes(tooltip = name, data_id = icb_name, colour = icb_name),
+    size = 3,
+  ) +
+  theme_bw() +
+  theme(
+    legend.title = element_blank(),
+    legend.text = element_text(size = 8),
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.box = "horizontal",
+    axis.text = element_text(size = text_size),
+    axis.title = element_text(size = text_size)
+  ) +
+  xlab("Obesity register size") +
+  ylab("Tirzepatide prescribing rate per 1000 registered patients")
+
+
+girafe(
+  ggobj = plot_tirzepatide_qof_practice_obsize,
+  options = list(
+    opts_zoom(min = 1, max = 5, duration = 300, default_on = FALSE),
+    opts_hover(css = ''),
+    opts_hover_inv(css = "opacity:0.05;"),
+    opts_toolbar(position = "top", hidden = c("saveaspng"))
+  )
+)
+```
+
+
+Funnel plot (numerator/denominator" (y) by "denominator" (x)) at practice level
+```{r}
+#| label: fig-funnel-practice
+#| fig-cap: Prescribing rate per 1000 obesity registered patients by obesity register size
+#| fig-width: 18
+#| fig-height: 15
+
+#### Obesity rate by registered rate practce-level
+
+plot_funnel_practice <- ggplot(
+  df_tirzepatide_qof_practice_plot,
+  aes(x = register, y = rateper1000register, colour = icb_name)
+) +
+  geom_point_interactive(
+    aes(tooltip = name, data_id = icb_name, colour = icb_name),
+    size = 3,
+  ) +
+  theme_bw() +
+  theme(
+    legend.title = element_blank(),
+    legend.text = element_text(size = 8),
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.box = "horizontal",
+    axis.text = element_text(size = text_size),
+    axis.title = element_text(size = text_size)
+  ) +
+  xlab("Obesity register size") +
+  ylab("Tirzepatide prescribing rate per 1000 obesity registered patients")
+
+
+girafe(
+  ggobj = plot_funnel_practice,
+  options = list(
+    opts_zoom(min = 1, max = 5, duration = 300, default_on = FALSE),
+    opts_hover(css = ''),
+    opts_hover_inv(css = "opacity:0.05;"),
+    opts_toolbar(position = "top", hidden = c("saveaspng"))
+  )
+)
+```
+
+Funnel plot (numerator/denominator" (y) by "denominator" (x)) at ICB level
+
+```{r}
+#| label: fig-funnel-icb
+#| fig-cap: Prescribing rate per 1000 obesity registered patients by obesity register size
+#| fig-width: 18
+#| fig-height: 15
+
+#### Obesity rate by registered rate ICB-level
+
+plot_funnel_practice <- ggplot(
+  df_tirzepatide_qof_plot,
+  aes(x = register, y = rateper1000register, colour = region)
+) +
+  geom_point_interactive(
+    aes(tooltip = icb_name, data_id = region, colour = region),
+    size = 3,
+  ) +
+  theme_bw() +
+  theme(
+    legend.title = element_blank(),
+    legend.text = element_text(size = 8),
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.box = "horizontal",
+    axis.text = element_text(size = text_size),
+    axis.title = element_text(size = text_size)
+  ) +
+  xlab("Obesity register size") +
+  ylab("Tirzepatide prescribing rate per 1000 obesity registered patients")
+
+
+girafe(
+  ggobj = plot_funnel_practice,
+  options = list(
+    opts_zoom(min = 1, max = 5, duration = 300, default_on = FALSE),
+    opts_hover(css = ''),
+    opts_hover_inv(css = "opacity:0.05;"),
+    opts_toolbar(position = "top", hidden = c("saveaspng"))
+  )
+)
+```
+
+
+An extreme example of my original approach. In this example the black line is rate per 1000 registered patients (left axis). The Red and Blue lines are both rate per 1000 obesity register (right axis).
+
+The red line represents a situation where the prescribing rate is assumed to be unrelated to the obesity register size. The obesity rate is always 9% of the list size. 
+
+The blue line represents a situation where the prescribing rate is entirely dependant on the obesity prevalence. The prescribing rate is always 30% of the obesity rate. 
+
+There is a clear difference between the two situations. 
+
+```{r}
+#| label: fig-example-time-series
+#| fig-cap: TBC
+#| fig-width: 18
+#| fig-height: 15
+
+#### All England QOF plot (Rate per 1000 registered)
+df_tirzepatide_england_qof <- read_parquet(
+  here("data", "df_tirzepatide_england_qof.parquet")
+)
+
+df_dummy_tirzepatide_england_qof <-
+  df_tirzepatide_england_qof |>
+  mutate(
+    const_qof = total_list_size * 0.09,
+    correlated_qof = items / 0.03,
+    const_qof_rate = items / const_qof * 1000,
+    correlated_qof_rate = items / correlated_qof * 1000
+  )
+
+
+all_england_plot_qof_A <- ggplot(
+  df_dummy_tirzepatide_england_qof,
+  aes(x = month, y = const_qof_rate)
+) +
+  geom_line() +
+  geom_line(
+    y = df_dummy_tirzepatide_england_qof$rateper1000 * 10,
+    color = "#e84a5f"
+  ) +
+  geom_line(
+    y = df_dummy_tirzepatide_england_qof$correlated_qof_rate,
+    color = "blue"
+  ) +
+  scale_y_continuous(
+    limits = c(0, NA),
+    sec.axis = sec_axis(~ . * 10, name = "Rate per 1000 obesity register"),
+    name = "Rate per 1000 registered patients"
+  ) +
+  scale_x_date(
+    limits = c(min(start_date_qof), max(end_date_qof)),
+    labels = date_format("%b %Y")
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    axis.text = element_text(size = text_size),
+    axis.title.y = element_text(size = text_size)
+  ) +
+  xlab("")
+
+all_england_plot_qof_A
+```
+
+Same thing for the real data, This shows the rates for the whole of England, scaled so they have the same y value at the start of the study period. 
+
+```{r}
+#| label: fig-time-series
+#| fig-cap: TBC
+#| fig-width: 18
+#| fig-height: 15
+
+df_tirzepatide_england_qof_long <- df_tirzepatide_england_qof |>
+  pivot_longer(
+    cols = starts_with("rateper"),
+    names_to = "rateper",
+    values_to = "rate"
+  )
+
+ratio_england <- df_tirzepatide_england_qof_long |>
+  filter(month == start_date_qof) |>
+  summarise(ratio = min(rate) / max(rate)) |>
+  pull()
+
+df_tirzepatide_england_qof_long <- df_tirzepatide_england_qof_long |>
+  mutate(
+    rate = case_when(
+      rateper == "rateper1000register" ~ rate * ratio_england,
+      .default = rate
+    )
+  )
+
+
+all_england_plot_qof <- ggplot(
+  df_tirzepatide_england_qof_long,
+  aes(x = month, y = rate, colour = rateper)
+) +
+  geom_line() +
+  scale_y_continuous(
+    limits = c(0, NA),
+    sec.axis = sec_axis(
+      ~ . / ratio_england,
+      name = "Rate per 1000 obesity register"
+    ),
+    name = "Rate per 1000 registered patients"
+  ) +
+  scale_x_date(
+    limits = c(min(start_date_qof), max(end_date_qof)),
+    labels = date_format("%b %Y")
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 90),
+    axis.text = element_text(size = text_size),
+    axis.title.y = element_text(size = text_size)
+  ) +
+  xlab("")
+
+girafe(
+  ggobj = all_england_plot_qof,
+  options = list(
+    opts_zoom(min = 1, max = 5, duration = 300, default_on = FALSE),
+    opts_hover(css = ''),
+    opts_hover_inv(css = "opacity:0.05;"),
+    opts_toolbar(position = "topleft", hidden = c("saveaspng"))
+  )
+)
+```
+
+
+
+And by ICB, arranged by region then highest rate
+
+```{r}
+#| label: fig-time-series_icb
+#| fig-cap: TBC
+#| fig-width: 25
+#| fig-height: 20
+
+#### Obesity rate by registered rate ICB-level
+
+icbs <- df_tirzepatide_icb_month_qof |> distinct(icb_name) |> pull()
+
+df_tirzepatide_icb_month_qof_long <- df_tirzepatide_icb_month_qof |>
+  pivot_longer(
+    cols = starts_with("rateper"),
+    names_to = "rateper",
+    values_to = "rate"
+  )
+
+
+df_tirzepatide_icb_month_qof_ratio <- df_tirzepatide_icb_month_qof_long |>
+  filter(month == start_date_qof) |>
+  group_by(icb_name) |>
+  summarise(ratio = min(rate) / max(rate))
+
+
+df_tirzepatide_icb_month_qof_long <- df_tirzepatide_icb_month_qof_long |>
+  left_join(df_tirzepatide_icb_month_qof_ratio) |>
+  mutate(
+    rate = case_when(
+      rateper == "rateper1000register" ~ rate * ratio,
+      .default = rate
+    )
+  ) |>
+  mutate(max_rate = max(rate), .by = icb_name) |>
+  arrange(region, max_rate, icb_name) |>
+  mutate(
+    icb_name = icb_title_name(icb_name),
+    icb_name = factor(icb_name, levels = unique(icb_name))
+  )
+
+
+plots <- df_tirzepatide_icb_month_qof_long |>
+  split(df_tirzepatide_icb_month_qof_long$icb_name) |>
+  purrr::imap(function(data_seg, icb) {
+    ratio <- data_seg |>
+      filter(month == start_date_qof) |>
+      pull(first(ratio))
+
+    ggplot(
+      data_seg,
+      aes(x = month, y = rate, colour = rateper, fill = region)
+    ) +
+      geom_line() +
+      scale_y_continuous(
+        limits = c(0, 10),
+        sec.axis = sec_axis(
+          ~ . / ratio,
+          name = "Rate per 1000 obesity register"
+        ),
+        name = "Rate per 1000 registered patients"
+      ) +
+      scale_x_date(
+        limits = c(min(start_date_qof), max(end_date_qof)),
+        labels = date_format("%b %Y")
+      ) +
+      xlab("") +
+      ggtitle(icb)
+  })
+
+plot_orlistat_icb_region_patchwork <- patchwork::wrap_plots(
+  plots,
+  ncol = 6,
+  axes = "collect",
+  guides = "collect"
+) &
+  theme_bw() &
+  theme(
+    legend.position = "bottom",
+    legend.text = element_text(size = text_size),
+    axis.text = element_text(size = text_size),
+    axis.text.x = element_text(angle = 90),
+    axis.title.y = element_text(size = text_size)
+  )
+
+girafe(
+  ggobj = plot_orlistat_icb_region_patchwork,
+  options = list(
+    opts_zoom(min = 1, max = 5, duration = 300, default_on = FALSE),
+    opts_hover(css = ''),
+    opts_hover_inv(css = "opacity:0.05;"),
+    opts_toolbar(position = "topleft", hidden = c("saveaspng"))
+  )
+)
+```
+
